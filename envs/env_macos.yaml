@@ -1,0 +1,13 @@
+name: jaxgpu
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip:
+      - jax==0.4.8
+      - jaxlib==0.4.7
+      - keras==2.12.0
+      - markdown==3.4.3
+      - numpy==1.23.5
+      - tensorboard==2.12.3
+prefix: /Users/ddrous/miniconda3/envs/jaxgpu

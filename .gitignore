@@ -1,0 +1,12 @@
+*.pyc
+*.tmp
+\.idea
+\.pytest_cache
+.vscode
+.mypy_cache
+*.npz
+.cache
+.DS_Store
+pintode.egg-info/*
+*vtk
+quadqs_statistics.json
