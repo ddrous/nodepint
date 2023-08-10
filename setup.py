@@ -15,6 +15,7 @@ setup(
        "jax >= 0.3.4",
        "pytest",
        "matplotlib>=3.4.0",
-       "equinox>=0.1.0",
+       "equinox",
+       "datasets[jax]"
    ],
 )
