@@ -1,1 +1,2 @@
-## Sampling module for the nodepint package
+#%%
+## Sampling strategies for the nodepint package

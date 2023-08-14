@@ -1,1 +1,2 @@
-## ODE solvers for nodepint
+#%%
+## Shape agnostic ODE solvers for nodepint

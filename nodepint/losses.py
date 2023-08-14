@@ -1,1 +1,2 @@
-## Projected loss functions for nodepint
+#%%
+## Dimension-agnostic loss functions for nodepint

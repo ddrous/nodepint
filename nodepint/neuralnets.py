@@ -1,1 +1,2 @@
-## Dynamic weights sizes for nodepint packages
+#%%
+## Weights for nodepint package with dynamic input and output layers

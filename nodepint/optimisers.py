@@ -1,1 +1,2 @@
-## Dynamic optimisers for nodepint
+#%%
+## Shape-agnostic optimisers for nodepint

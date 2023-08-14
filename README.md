@@ -5,6 +5,11 @@ Parallel in Time exploration of Neural ODEs.
 ## Features
 - Feature mapping to various problems (ODEs)
 - Time-parallelisation (or layer parallelisation if compared to ResNets)
+    - Time is split into chunks, and the ODE is solved in parallel for each chunk (1st level)
+    - Since the PinT problem is projected on a lower dimensional space, this allows for further parallelism (2nd level):
+        - If we always project on a randomly sampled 1D space, we can also solve the ODEs in parallel and average the NN weights without having to re(jit)compile
+        - If we project on an increasingly bigger randomly sampled spaces, we can still do it, but we need to re(jit)compile the PinT processes
+        - If we construct our space in a deterministic way (via sensitivity analysis wrt the latest added vector), then we can't parallelise since it will be sequential.
 - For optimal control (OC) while training a neural ODE, we propose several combinations:
     - DP for training, and DAL for OC
     - DP both for training and OC (a bit like PINN)
