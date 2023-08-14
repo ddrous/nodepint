@@ -7,6 +7,8 @@ from jax.experimental.ode import odeint
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from multimethod import multimethod
+
 #%%
 def mlp(params, inputs):
     for w, b in params[:-1]:
@@ -17,14 +19,19 @@ def mlp(params, inputs):
     return outputs
 
 
-def resnet(params, inputs, depth=2):    ## ! A single MLP does well here (TRY using different MLP params at each depth)
+RES_DEPTH = 1       ## Do not use more than 1 MLP here, or the resnet will not work. This would build a weird recursive MLP, not a resnet.
+
+
+@multimethod
+def resnet(params:list, inputs:object, depth:object):
     for i in range(depth):
         inputs = mlp(params, inputs) + inputs
     return inputs
 
 
 def resnet_squared_loss(params, inputs, targets):
-    preds = resnet(params, inputs)
+    # print("types: ", type(params), type(inputs), type(targets))
+    preds = resnet(params, inputs, RES_DEPTH)
     return jnp.mean(jnp.sum((preds - targets)**2, axis=-1))
 
 def init_random_params(layer_sizes, key=PRNGKey(0)):
@@ -32,11 +39,17 @@ def init_random_params(layer_sizes, key=PRNGKey(0)):
     return [[jax.random.normal(k, (m, n)), jax.random.normal(k, (n,))]
             for m, n, k in zip(layer_sizes[:-1], layer_sizes[1:], keys)]
 
+# @jax.jit
+# def resnet_update(params, inputs, targets, learning_rate=0.01):
+#     grads = jax.grad(resnet_squared_loss)(params, inputs, targets)
+#     return [(w - learning_rate * dw, b - learning_rate * db)
+#             for (w, b), (dw, db) in zip(params, grads)]
+
 @jax.jit
 def resnet_update(params, inputs, targets, learning_rate=0.01):
     grads = jax.grad(resnet_squared_loss)(params, inputs, targets)
-    return [(w - learning_rate * dw, b - learning_rate * db)
-            for (w, b), (dw, db) in zip(params, grads)]
+    params = jax.tree_util.tree_map(lambda p, dp: p-learning_rate*dp, params, grads)
+    return params
 
 
 inputs = jnp.reshape(jnp.linspace(-2., 2., 10), (10, 1))
@@ -53,11 +66,47 @@ ax = fig.gca()
 ax.plot(inputs, targets, "o", label='data')
 
 fine_inputs = jnp.reshape(jnp.linspace(-3., 3., 100), (100, 1))
-predictions = resnet(resnet_params, fine_inputs)
+predictions = resnet(resnet_params, fine_inputs, RES_DEPTH)
 
-ax.plot(fine_inputs, predictions, label='predictions')
+ax.plot(fine_inputs, predictions, label='single-depth resnet')
 ax.set(xlabel='inputs', ylabel='outputs')
 ax.legend()
+
+
+
+# %%
+
+## Let's make a true resnet with different MLPs at different depths
+
+
+RES_DEPTH = 3
+
+
+@multimethod
+def resnet(params:tuple, inputs:object, depth:object):
+    # print("types:", type(params), type(inputs), type(depth))
+    for depth_p in params:
+        inputs = mlp(depth_p, inputs) + inputs
+    return inputs
+
+# keys = jax.random.split(PRNGKey(0), RES_DEPTH)
+keys = [PRNGKey(0)]*RES_DEPTH           ## Samle MLP initialisation at each depth
+resnet_params = tuple([init_random_params(layer_sizes, key) for key in keys])
+
+for i in range(1000):
+    resnet_params = resnet_update(resnet_params, inputs, targets)
+
+fig = plt.figure(figsize=(12, 8), dpi=150)
+ax = fig.gca()
+ax.plot(inputs, targets, "o", label='data')
+
+fine_inputs = jnp.reshape(jnp.linspace(-3., 3., 100), (100, 1))
+predictions = resnet(resnet_params, fine_inputs, RES_DEPTH)
+
+ax.plot(fine_inputs, predictions, label='multi-depth resnet')
+ax.set(xlabel='inputs', ylabel='outputs')
+ax.legend()
+
 
 # %%
 
@@ -98,7 +147,7 @@ ax = fig.gca()
 ax.plot(inputs, targets, "o", label='data')
 
 node_predictions = batched_neural_ode(nn_dynamics, ode_params, fine_inputs)
-ax.plot(fine_inputs, predictions, label='resnet')
+ax.plot(fine_inputs, predictions, label='multi-depth resnet')
 ax.plot(fine_inputs, node_predictions, label='neural ode')
 ax.set(xlabel='inputs', ylabel='outputs')
 ax.legend()
@@ -135,3 +184,5 @@ ax.legend()
 
 # 1. Neural ODEs are a generalization of ResNets
 # 2. Resnets are not good if you use the same MLP at multiple depths. The tutorial has a bug. Their resnet always returns the last layers output; without compounding the depths.
+
+# %%
