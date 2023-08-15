@@ -4,6 +4,12 @@ import jax.numpy as jnp
 from jax.random import PRNGKey
 from jax.experimental.ode import odeint
 
+print(jax.__version__)
+print(jax.devices())
+
+
+#%%
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -18,9 +24,10 @@ def mlp(params, inputs):
     outputs = jnp.dot(inputs, final_w) + final_b
     return outputs
 
-
 RES_DEPTH = 1       ## Do not use more than 1 MLP here, or the resnet will not work. This would build a weird recursive MLP, not a resnet.
 
+print(jax.__version__)
+print(jax.devices())
 
 @multimethod
 def resnet(params:list, inputs:object, depth:object):
