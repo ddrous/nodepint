@@ -13,9 +13,11 @@ setup(
    long_description=open('README.md', encoding="utf-8").read(),
    install_requires=[
        "jax >= 0.3.4",
-       "pytest",
-       "matplotlib>=3.4.0",
-       "equinox",
-       "datasets[jax]"
+      #  "pytest",
+      #  "equinox",
+      #  "datasets[jax]"  WARNING: They require and old version of JAX <=0.3.5. We can avoid this by installing without dependencies 'pip install datasets[jax] --no-deps', and mannully installing the dependencies one after the other.
+      #  "pyvista[imageio-ffmpeg]",   WARNING: The below are for visualisation purpose only
+      #  "pyvista[trame]",
+      #  "matplotlib>=3.4.0",
    ],
 )

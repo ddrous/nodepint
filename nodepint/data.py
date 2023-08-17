@@ -54,3 +54,5 @@ if __name__ == "__main__":
     ds = extract_all_data(ds, features=["image", "label"])
     print(type(ds[0]))
     print(f"Time to extract: {time.time() - start}")
+
+# %%
