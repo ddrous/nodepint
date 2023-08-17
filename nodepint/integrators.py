@@ -67,15 +67,24 @@ if __name__ == "__main__":
     print("=== Euler integration ===")
     %timeit -n1 -r2 euler_integrator(lorentz, u0, t=times[:], hmax=hmax)
 
-    from utils import pvplot
+    ## Plot the attractors with pyvista
+    # from utils import pvplot
+
+    # us = default_integrator(lorentz, u0, t=times, hmax=hmax)
+    # ax = pvplot(us[:,0], us[:,2], label="Jax's RK", show=False, color="b", width=2, style="-")
+
+    # # u0 = jnp.array([1., 1.001, 1.])
+    # us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
+    # ax = pvplot(us[:,0], us[:,2], ax=ax, xlabel="x", ylabel="z", label="Euler Explicit", title="Lorentz's attractors", color="r", width=1, style="-")
+
+    # Plot the attractors with seaborn
+    from utils import sbplot
 
     us = default_integrator(lorentz, u0, t=times, hmax=hmax)
-    ax = pvplot(us[:,0], us[:,2], label="Jax's RK", show=False, color="b", width=2, style="-")
+    ax = sbplot(us[:,0], us[:,2], label="Jax's RK", color="b", lw=2)
 
-    # u0 = jnp.array([1., 1.001, 1.])
     us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
-    ax = pvplot(us[:,0], us[:,2], ax=ax, xlabel="x", ylabel="z", label="Euler Explicit", title="Lorentz's attractors", color="r", width=1, style="-")
-
+    ax = sbplot(us[:,0], us[:,2], ".-", markersize=2, ax=ax, x_label="x", y_label="z", label="Euler Explicit", title="Lorentz's attractors", color="r", lw=1)
 
 
 # %%

@@ -35,6 +35,7 @@ def sbplot(*args, ax=None, figsize=(6,3.5), x_label=None, y_label=None, title=No
 
 def pvplot(x, y, show=True, xlabel=None, ylabel=None, title=None, ax=None, **kwargs):
     import pyvista as pv
+    pv.start_xvfb()
 
     if ax is None:
         ax = pv.Chart2D()
