@@ -16,8 +16,8 @@ from functools import partial
 
 
 ## The fault Jax differentiable integrator (TODO Jit this)
-# default_integrator = jax.jit(odeint, static_argnums=(0))
-default_integrator = odeint
+# dopri_integrator = jax.jit(odeint, static_argnums=(0))
+dopri_integrator = odeint       ## TODO hmax only available with recent versions of JAX
 
 ## Simple Euler integrator (TODO Use ForI or LaxScan to make it faster)
 @partial(jax.jit, static_argnums=(0))
@@ -62,15 +62,15 @@ if __name__ == "__main__":
     u0 = jnp.array([1., 1., 1.])    # Initial condition
 
     print("BENCHMARKS")
-    print("=== Jax's default odeint ===")
-    %timeit -n1 -r2 default_integrator(lorentz, u0, t=times[:], hmax=hmax)
+    print("=== Jax's dopri odeint ===")
+    %timeit -n1 -r2 dopri_integrator(lorentz, u0, t=times[:])
     print("=== Euler integration ===")
     %timeit -n1 -r2 euler_integrator(lorentz, u0, t=times[:], hmax=hmax)
 
     ## Plot the attractors with pyvista
     from utils import pvplot
 
-    us = default_integrator(lorentz, u0, t=times, hmax=hmax)
+    us = dopri_integrator(lorentz, u0, t=times)
     ax = pvplot(us[:,0], us[:,2], label="Jax's RK", show=False, color="b", width=2, style="-")
 
     # u0 = jnp.array([1., 1.001, 1.])
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # # Plot the attractors with seaborn
     # from utils import sbplot
 
-    # us = default_integrator(lorentz, u0, t=times, hmax=hmax)
+    # us = dopri_integrator(lorentz, u0, t=times, hmax=hmax)
     # ax = sbplot(us[:,0], us[:,2], label="Jax's RK", color="b", lw=2)
 
     # us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
