@@ -12,12 +12,12 @@ setup(
    description='Parallel-in-tme learning and inference of Neural ODEs',
    long_description=open('README.md', encoding="utf-8").read(),
    install_requires=[
-       "jax >= 0.3.4",
-      #  "pytest",
-      #  "equinox",
-      #  "datasets[jax]"  # WARNING: They require and old version of JAX <=0.3.5. We can avoid this by installing without dependencies 'pip install datasets[jax] --no-deps', and mannully installing the dependencies one after the other.
-      #  "pyvista[imageio-ffmpeg]",   WARNING: The below are for visualisation purpose only
-       "pyvista[trame]",
-      #  "matplotlib>=3.4.0",
+         "jax >= 0.3.4",
+         "equinox >= 0.9.2",
+         "datasets[jax] >= 2.0.0"
+         "optax >= 0.1.1"
+         "pytest",
+         "seaborn",  ## The last two are optional
+         "pyvista[trame]",
    ],
 )
