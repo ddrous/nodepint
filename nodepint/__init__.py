@@ -7,5 +7,5 @@ from nodepint.neuralnets import *
 from nodepint.integrators import *
 from nodepint.pint import *
 from nodepint.training import *
-from nodepint.sampling import *
+from nodepint.projection import *
 

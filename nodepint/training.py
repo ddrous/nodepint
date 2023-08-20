@@ -35,10 +35,10 @@ from datasets import Dataset
 from neuralnets import DynamicNet
 from optax import GradientTransformation
 from pint import TimeParallelScheme
-from sampling import ReducedBasisScheme
+from projection import ReducedBasisScheme
 
 
-def train_parallel_neural_ode(neuralnet:Module, data:Dataset, pintmethod:TimeParallelScheme, rbscheme:ReducedBasisScheme, solver:callable, loss:callable, optimiser:GradientTransformation, *args):
+def train_parallel_neural_ode(neuralnet:Module, data:Dataset, pintmethod:str, projscheme:str, solver:callable, loss:callable, optimiser:GradientTransformation, *args):
     ## Steps in the for loop
     # - Sample a vector
     # - Convert the neural net (of class eqx.Module) into a dynamic one (of class DynamicNet)

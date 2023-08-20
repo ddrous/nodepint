@@ -7,7 +7,6 @@
 import jax
 import equinox as eqx
 
-
 class DynamicNet(eqx.Module):
     """
     This class is for dynamic multilayer perceptrons. The input and output layers are prone to change in shapes during training.
@@ -41,6 +40,8 @@ class DynamicNet(eqx.Module):
             self.hidden_layers = self.hidden_layers + [eqx.nn.Linear(100, 100, key=keys[i+1]), jax.nn.relu]
 
         self.output_layer = eqx.nn.Linear(100, output_size, key=keys[-1])
+
+        self.prediction_mapping = eqx.nn.Linear(output_size, 1, key=keys[-1])
 
     def __call__(self, x, t):
         x = self.input_layer(x) ## TODO add time to the input layer
@@ -94,11 +95,11 @@ if __name__ == "__main__":
 
     x_key, y_key, model_key = jax.random.split(jax.random.PRNGKey(0), 3)
     x, y = jax.random.normal(x_key, (100, 2)), jax.random.normal(y_key, (100, 2))
-    model = DynamicMLP(input_size, output_size, num_hidden_layers, model_key)
+    model = DynamicNet(None, input_size, output_size, model_key)
 
     @eqx.filter_jit
     def loss(model, x, y):
-        y_pred = jax.vmap(model)(x)
+        y_pred = jax.vmap(model)(x, None)
         return jax.numpy.mean((y - y_pred) ** 2)
 
     print(f"Loss value is: {loss(model, x, y)} \n")
