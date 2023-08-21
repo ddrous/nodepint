@@ -15,7 +15,7 @@ from functools import partial
 
 
 
-## The fault Jax differentiable integrator (TODO Jit this)
+## The default Jax differentiable integrator (TODO Jit this)
 # dopri_integrator = jax.jit(odeint, static_argnums=(0))
 dopri_integrator = odeint       ## TODO hmax only available with recent versions of JAX
 
@@ -63,9 +63,9 @@ if __name__ == "__main__":
 
     print("BENCHMARKS")
     print("=== Jax's dopri odeint ===")
-    %timeit -n1 -r2 dopri_integrator(lorentz, u0, t=times[:])
+    # %timeit -n1 -r2 dopri_integrator(lorentz, u0, t=times[:])
     print("=== Euler integration ===")
-    %timeit -n1 -r2 euler_integrator(lorentz, u0, t=times[:], hmax=hmax)
+    # %timeit -n1 -r2 euler_integrator(lorentz, u0, t=times[:], hmax=hmax)
 
     ## Plot the attractors with pyvista
     from utils import pvplot

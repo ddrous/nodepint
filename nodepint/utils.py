@@ -1,5 +1,13 @@
 ## Just a bunch of utility functions
+import time
+import jax
 
+## Simply returns a suitable key for all jax operations
+def get_key(key=None):
+    if key is None:
+        key = jax.random.PRNGKey(time.time_ns())
+    _, key = jax.random.split(key)
+    return key
 
 ## Wrapper function for matplotlib and seaborn
 def sbplot(*args, ax=None, figsize=(6,3.5), x_label=None, y_label=None, title=None, x_scale='linear', y_scale='linear', xlim=None, ylim=None, **kwargs):

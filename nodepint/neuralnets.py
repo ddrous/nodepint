@@ -7,51 +7,55 @@
 import jax
 import equinox as eqx
 
+from .utils import get_key
+
 class DynamicNet(eqx.Module):
     """
     This class is for dynamic multilayer perceptrons. The input and output layers are prone to change in shapes during training.
     """
 
-    input_size: int
-    output_size: int
+    dyn_input_size: int
+    dyn_output_size: int
+    sta_pred_size: int
 
-    input_layer: eqx.nn.Linear
-    hidden_layers: list
-    output_layer: eqx.nn.Linear
+    dyn_input_layer: eqx.nn.Linear
+    sta_hidden_layers: eqx.Module
+    dyn_output_layer: eqx.nn.Linear
 
-    prediction_mapping: eqx.nn.Linear       ## For regression of classification. TODO This layer equally evolves with the output layer
+    dyn_prediction_layer: eqx.nn.Linear
 
-    def __init__(self, neural_net=None, input_size=2, output_size=1, key=None):
+    def __init__(self, neural_net=None, input_size=2, output_size=1, pred_size=1, key=None):
         """ 
         Initialises the input and outputs layers of DynamicNet with input_size (at least 2 to include time) and output_size (at least 1) respectively
         """
 
-        num_hidden_layers = 10 ## We don't need to set this up, it should just be whatever the eqx.Module had inside
+        hidden_features = 100 ## TODO get this parameter from the neural_net
 
-        keys = jax.random.split(key, num=num_hidden_layers+2)
-        self.input_size = input_size
-        self.output_size = output_size
+        key = get_key(key)
+        keys = jax.random.split(key, num=3)
 
-        self.input_layer = eqx.nn.Linear(input_size, 100, key=keys[0])
+        self.dyn_input_size = input_size
+        self.dyn_output_size = output_size
+        self.sta_pred_size = pred_size
 
-        ## This represents a neural net. TODO use the structure of the eqx.Module as hidden layers
-        self.hidden_layers = []
-        for i in range(num_hidden_layers):
-            self.hidden_layers = self.hidden_layers + [eqx.nn.Linear(100, 100, key=keys[i+1]), jax.nn.relu]
+        self.dyn_input_layer = eqx.nn.Linear(input_size, hidden_features-1, key=keys[0])    ## Remove -1 because time is not placed in the dynamic input layer
 
-        self.output_layer = eqx.nn.Linear(100, output_size, key=keys[-1])
+        self.sta_hidden_layers = neural_net
 
-        self.prediction_mapping = eqx.nn.Linear(output_size, 1, key=keys[-1])
+        self.dyn_output_layer = eqx.nn.Linear(hidden_features, output_size, key=keys[1])
+
+        if hasattr(neural_net, "prediction_layer"):
+            self.dyn_prediction_layer = neural_net.prediction_layer
+        else:
+            self.dyn_prediction_layer = eqx.nn.Linear(output_size, pred_size, key=keys[2])
 
     def __call__(self, x, t):
-        x = self.input_layer(x) ## TODO add time to the input layer
-        ## TODO The for loop should be changed to whatever the eqx.Module had
-        for layer in self.hidden_layers:
-            x = layer(x)
-        return self.output_layer(x)
+        x = self.dyn_input_layer(x, t)
+        x = self.sta_hidden_layers(x)
+        return self.dyn_output_layer(x)
 
     def predict(self, x):
-        return self.prediction_mapping(x)
+        return self.prediction_layer(x)
 
 
 
@@ -69,21 +73,74 @@ def reshape_input_layer(neural_net:eqx.Module, input_size, key):
 def reshape_output_layer(neural_net:eqx.Module, output_size, key):
     pass
 
-
-def add_neurons_to_input_layer(neural_net:eqx.Module, nb_neurons, key):
+## TIP make sure all the side effects are centred in this function
+def add_neurons_to_input_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
     """
     Adds a neuron to the input layer (which must contain at least one neuron before hand)
     - Conserve all hidden existing weights
     - Recreate a new input layer, and copy the old weights that match into their respective positions
     - Reset the properties of the neural net (input size, etc.)
     """
-    pass
+    key = get_key(key)
 
-def add_neurons_to_output_layer(neural_net:eqx.Module, nb_neurons, key):
-    pass
+    old_input_size = neural_net.input_layer.in_features
+    old_output_size = neural_net.input_layer.out_features
 
-def add_neurons_to_prediction_layer(neural_net:eqx.Module, nb_neurons, key):
-    pass
+    new_layer = eqx.nn.Linear(nb_neurons+old_input_size, old_output_size, key=key)
+
+    new_layer.weight = new_layer.weight.at[:, :old_input_size].set(neural_net.input_layer.weight) ## TODO is eqx tree_at faster?: https://docs.kidger.site/equinox/tricks/
+
+    new_layer.bias = neural_net.input_layer.bias
+
+    neural_net.input_layer = new_layer
+    neural_net.input_size = new_layer.in_features  ## Just for decoration
+
+    return neural_net
+
+
+
+
+
+def add_neurons_to_output_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
+
+    key = get_key(key)
+
+    old_input_size = neural_net.output_layer.in_features
+    old_output_size = neural_net.output_layer.out_features
+
+    new_layer = eqx.nn.Linear(old_input_size, old_output_size+nb_neurons, key=key)
+
+    new_layer.weight = new_layer.weight.at[:old_output_size, :].set(neural_net.output_layer.weight)
+
+    new_layer.bias = neural_net.output_layer.bias
+
+    neural_net.output_layer = new_layer
+    neural_net.output_size = new_layer.out_features
+
+    return neural_net
+
+
+
+
+
+def add_neurons_to_prediction_layer(neural_net:eqx.Module, basis, key=None):
+    key = get_key(key)
+
+    old_input_size = neural_net.prediction_layer.in_features
+    old_output_size = neural_net.prediction_layer.out_features
+
+    new_layer = eqx.nn.Linear(basis.shape[1], old_output_size, key=key)
+
+    new_layer.weight = new_layer.weight.at[:, :old_input_size].set(neural_net.input_layer.weight)
+
+    new_layer.bias = neural_net.prediction_layer.bias
+
+    neural_net.prediction_layer = new_layer
+
+    return neural_net
+
+
+
 
 #%%
 
@@ -106,4 +163,3 @@ if __name__ == "__main__":
 
     gradients = eqx.filter_grad(loss)(model, x, y)
     print(f"Gradients PyTree is:\n {gradients}")
-

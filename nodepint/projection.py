@@ -11,23 +11,33 @@
 ## The sampling strategy is determined by the user, and is passed as an argument to the `train_parallel_neural_ode` function
 
 
+from typing import Collection
 import jax
-def random_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
 
-    if key is None:
-        key = jax.random.PRNGKey(0)
+from .utils import get_key
 
-    while True:
-        key, subkey = jax.random.split(key)
-        yield jax.random.normal(subkey, shape=basis.shape[1])
+def random_sampling(old_basis:jax.Array=None, shape:Collection=(None, 1), key:jax.random.PRNGKey=None):
+
+    key = get_key(key)
+
+    if old_basis is None:
+        if [s for s in shape if s is None]:
+            raise ValueError("If no basis is provided, the shape of the random vector must be specified")
+        return jax.random.normal(key, shape=shape)
+    else:
+        new_basis = jax.random.normal(key, shape=shape)
+        new_basis = new_basis.at[..., :old_basis.shape[-1]].set(old_basis)
+
+        return new_basis, new_basis.shape[-1]-old_basis.shape[-1]
 
 def learned_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     pass
 
-def select_projection_scheme(name:str):
+def select_projection_scheme(name:str="random"):
     if name=="random":
         scheme = random_sampling
     elif name=="learned":
         scheme = learned_sampling
-
+    else:
+        raise ValueError("Unknown projection scheme")
     return scheme

@@ -1,11 +1,9 @@
-import nodepint.config as UPDEC
+from .config import *
+from .utils import *
 
-# from nodepint.utils import *
-
-from nodepint.data import *
-from nodepint.neuralnets import *
-from nodepint.integrators import *
-from nodepint.pint import *
-from nodepint.training import *
-from nodepint.projection import *
-
+from .data import *
+from .neuralnets import *
+from .integrators import *
+from .pint import *
+from .training import *
+from .projection import *
