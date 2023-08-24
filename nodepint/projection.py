@@ -13,6 +13,7 @@
 
 from typing import Collection
 import jax
+import jax.numpy as jnp
 
 from .utils import get_key
 
@@ -23,12 +24,18 @@ def random_sampling(old_basis:jax.Array=None, shape:Collection=(None, 1), key:ja
     if old_basis is None:
         if [s for s in shape if s is None]:
             raise ValueError("If no basis is provided, the shape of the random vector must be specified")
-        return jax.random.normal(key, shape=shape)
+        # print("new basis: ", jax.random.normal(key, shape=(jnp.prod(jnp.asarray(shape)), 1)))
+
+        ret = jax.random.normal(key, shape=(jnp.prod(jnp.asarray(shape)), 1)), 1
     else:
         new_basis = jax.random.normal(key, shape=shape)
         new_basis = new_basis.at[..., :old_basis.shape[-1]].set(old_basis)
 
-        return new_basis, new_basis.shape[-1]-old_basis.shape[-1]
+        ret = new_basis, new_basis.shape[-1]-old_basis.shape[-1]
+
+    #     print("new basis: ", new_basis)
+    # print("bases shapes: ", old_basis, ret[0].shape)
+    return ret
 
 def learned_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     pass

@@ -51,10 +51,12 @@ def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
     :return: A dataset
     """
 
-    alldata = extract_all_data(ds)
-    flatdata = jnp.reshape(alldata, (alldata.shape[0], -1))
+    all_data, labels = extract_all_data(ds)
+    flat_data = jnp.reshape(all_data, (all_data.shape[0], -1))
 
-    return flatdata @ basis
+    # print("Shapes of flatdata and basis:", flat_data.shape, basis.shape)
+
+    return flat_data @ basis, labels
 
 
 def convert_to_one_hot_encoding(ds:Dataset, feature:str="label") -> Dataset:

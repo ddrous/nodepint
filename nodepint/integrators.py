@@ -17,12 +17,19 @@ from functools import partial
 
 ## The default Jax differentiable integrator (TODO Jit this)
 # dopri_integrator = jax.jit(odeint, static_argnums=(0))
-dopri_integrator = odeint       ## TODO hmax only available with recent versions of JAX
+dopri_integrator = odeint
+# def dopri_integrator(func, t, y0):      ## Inverts the order of t and y0 passed to func
+#     return odeint(func, y0, t, rtol=1e-3, atol=1e-3, mxstep=1000, hmax=1e-5)
 
 ## Simple Euler integrator (TODO Use ForI or LaxScan to make it faster)
-@partial(jax.jit, static_argnums=(0))
+# @partial(jax.jit, static_argnums=(0))
 def euler_step(func, y, t, dt):
-    return y+func(y, t)*dt, t + dt
+    # print("Just print y shape for the sake of it", y.shape)
+    # print("SHapes of every element:", y.shape, t.shape, dt.shape, func(y, t).shape)
+
+    ret = y+func(y, t)*dt, t + dt
+    # print("Just print ret shape", ret[0].shape)
+    return ret
 
 def euler_integrator(func, y0, t, hmax=1e-2):
 

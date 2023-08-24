@@ -5,26 +5,14 @@ import jax
 import jax.numpy as jnp
 
 
-def define_shooting_function(nb_processors, times, rhs, integrator):
-    ## Split times among N = nb_processors
-    splittimes = jnp.array_split(times, nb_processors)
 
-    ## Define the actual shooting function
-    def mtp_shooting_func(Z, z0):
+def solve_multiple_shooting(pint_scheme:str, B0, nb_processors, times, integrator):
+    mtp_sht_func = define_shooting_function(nb_processors, times, integrator)
+    shooting_func = select_root_finding_function(pint_scheme)
 
-        Z_ = [z0]
+    # return shooting_func(mtp_sht_func, x0, method='hybr', jac=None, tol=None, callback=None, options=None)
+    return shooting_func(mtp_sht_func, B0)
 
-        for n in range(nb_processors):
-            ts = splittimes[n]
-            if n < nb_processors-1:
-                ts = jnp.concatenate([ts, [splittimes[n+1]]])
-
-            znext = integrator(rhs, Z[n], times=ts)
-            Z_.append(znext)
-
-        return Z - jnp.array(Z_)
-
-    return mtp_shooting_func
 
 
 def select_root_finding_function(pint_scheme:str):
@@ -40,12 +28,30 @@ def select_root_finding_function(pint_scheme:str):
 
 
 
-def solve_multiple_shooting(pint_scheme:str, B0, nb_processors, times, integrator):
-    mtp_sht_func = define_shooting_function(nb_processors, times, integrator)
-    shooting_func = select_root_finding_function(pint_scheme)
+def define_shooting_function(nb_splits, times, rhs, integrator):
+    ## Split times among N = nb_processors
+    split_times = jnp.array_split(times, nb_splits)
 
-    # return shooting_func(mtp_sht_func, x0, method='hybr', jac=None, tol=None, callback=None, options=None)
-    return shooting_func(mtp_sht_func, B0)
+
+    ## Define the actual shooting function
+    def mtp_shooting_func(Z, z0):
+
+        # print("mm")
+        # print("All Arguments: ", Z, z0)
+
+        Z_ = [z0]
+
+        for n in range(nb_splits):      ## TODO do this in parallel   
+            ts = split_times[n]
+            if n < nb_splits-1:
+                ts = jnp.concatenate([ts, split_times[n+1][0, jnp.newaxis]])      ## TODO do this just once, and reuse the ts later on
+
+            z_next = integrator(rhs, Z[n], t=ts)[-1,...]
+            Z_.append(z_next)
+
+        return Z - jnp.stack(Z_, axis=0)
+
+    return mtp_shooting_func
 
 
 #%%
@@ -53,12 +59,44 @@ def solve_multiple_shooting(pint_scheme:str, B0, nb_processors, times, integrato
 ## Newton's method - TODO we still need to define:
 # - custom JVP rule https://jax.readthedocs.io/en/latest/notebooks/Custom_derivative_rules_for_Python_code.html
 # - example of fixed-point interation in PyTorch http://implicit-layers-tutorial.org/deep_equilibrium_models/
-def newton_shooting(func, B0, learning_rate=1., tol=1e-6, maxiter=10):
-    grad = jax.grad(func)
+def newton_shooting(func, z0, B0=None, learning_rate=1., tol=1e-6, maxiter=10):
+    grad = jax.jacfwd(func)
 
     B = B0
+
+    shape = B.shape
+    Nnz = shape[0]*shape[1]
+
+    ## Print func name and its arguments
+    # print("Function name: ", func.__name__, "\nLocal vars: ", func.__code__.co_varnames, "\nFreevars: ", func.__code__.co_freevars)
+
     for _ in range(maxiter):
-        B_new = B - learning_rate * jnp.linalg.inv(grad(B)) @ func(B)
+        grad_inv = jnp.linalg.inv(grad(B, z0).reshape((Nnz, Nnz)))
+
+        B_new = B - learning_rate * grad_inv @ func(B, z0)
+        if jnp.linalg.norm(B_new - B) < tol:
+            break
+        B = B_new
+
+    print("Shape of the returned B is: ", B.shape)
+
+    return B        ## TODO B is currentlyb of size N \times nz, but should only be of size nz
+
+
+
+def direct_shooting(func, z0, B0=None, learning_rate=1., tol=1e-6, maxiter=10):
+    grad = jax.jacfwd(func)
+
+    B = B0
+
+    ## Print func name and its arguments
+    # print("Function name: ", func.__name__, "\nLocal vars: ", func.__code__.co_varnames, "\nFreevars: ", func.__code__.co_freevars)
+
+    for _ in range(maxiter):
+        ## Solve a linear system
+        B_new = jnp.linalg.solve(  grad(B, z0), B - func(B, z0))        ## FIx this
+
+
         if jnp.linalg.norm(B_new - B) < tol:
             break
         B = B_new
@@ -67,5 +105,5 @@ def newton_shooting(func, B0, learning_rate=1., tol=1e-6, maxiter=10):
 
 
 
-def sequential_shooting(func, B0):
+def sequential_shooting(func, z0, B0):
     pass
