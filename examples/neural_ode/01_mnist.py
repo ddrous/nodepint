@@ -1,12 +1,14 @@
 
+#%%
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 import optax
+import matplotlib.pyplot as plt
 
-from nodepint.utils import get_key
+from nodepint.utils import get_key, sbplot
 from nodepint.training import train_parallel_neural_ode
-from nodepint.data import load_jax_dataset, convert_to_one_hot_encoding
+from nodepint.data import load_jax_dataset, convert_to_one_hot_encoding, normalise_feature
 from nodepint.integrators import dopri_integrator, euler_integrator
 
 class MLP(eqx.Module):
@@ -37,8 +39,22 @@ class MLP(eqx.Module):
 
 ds = load_jax_dataset(path="mnist", split="train")
 ds = convert_to_one_hot_encoding(ds, feature="label")
+ds = normalise_feature(ds, feature="image", factor=255.)
+print("ds", ds, "features", ds.features)
 
+## Visualise the dataset
 
+pixels = ds[0]["image"]
+label = ds[0]["label"]
+
+# Plot
+plt.title('Label is {label}'.format(label=label.argmax()))
+plt.imshow(pixels, cmap='gray')
+plt.show()
+
+# print(pixels)
+
+#%%
 ## Optax crossentropy loss
 loss = optax.softmax_cross_entropy
 optimscheme = optax.adam
@@ -47,7 +63,7 @@ optimscheme = optax.adam
 neuralnet = MLP()
 
 ## Train the neural ODE
-dynamicnet, loss_hts = train_parallel_neural_ode(neuralnet,
+dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
                                     ds,
                                     pint_scheme="newton",
                                     proj_scheme="random",
@@ -56,5 +72,20 @@ dynamicnet, loss_hts = train_parallel_neural_ode(neuralnet,
                                     optim_scheme=optimscheme, 
                                     nb_processors=4, 
                                     shooting_learning_rate=1e-3, 
-                                    scheduler=optax.constant_schedule(1e-3), 
-                                    times=jnp.linspace(0, 1, 1000))
+                                    scheduler=optax.constant_schedule(1e-3),
+                                    times=jnp.linspace(0, 1, 100),
+                                    nb_epochs=100)
+
+
+#%%
+
+# dynamicnet
+loss_hts
+
+## Plot the loss histories accross iterations
+# sbplot(jnp.concatenate(loss_hts), title="Loss history")
+
+labels = [str(i) for i in range(len(loss_hts))]
+epochs = range(len(loss_hts[0]))
+
+sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", title="Loss history");

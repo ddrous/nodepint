@@ -40,7 +40,7 @@ def extract_all_data(ds:Dataset, features: Collection[str] = None) -> Collection
     """
     if features is None:
         features = get_dataset_features(ds)
-    return tuple([ds[:][feature] for feature in features])
+    return tuple([ds[:50][feature] for feature in features])        ## TODO! do this in batches !
 
 def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
     """
@@ -51,7 +51,7 @@ def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
     :return: A dataset
     """
 
-    all_data, labels = extract_all_data(ds)
+    all_data, labels = extract_all_data(ds, features=["image", "label"])
     flat_data = jnp.reshape(all_data, (all_data.shape[0], -1))
 
     # print("Shapes of flatdata and basis:", flat_data.shape, basis.shape)
@@ -79,6 +79,16 @@ def convert_to_one_hot_encoding(ds:Dataset, feature:str="label") -> Dataset:
 
     return ds
 
+def normalise_feature(ds:Dataset, feature:str="image", factor:float=255.) -> Dataset:
+    def divide_by_255(batch):
+        newval = batch[feature] / factor
+        return {"normalised": newval}
+
+    ds = ds.map(divide_by_255, remove_columns=[feature], batched=True)
+
+    ds = ds.rename_column("normalised", feature)
+
+    return ds
 
 
 

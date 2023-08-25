@@ -46,7 +46,7 @@ class DynamicNet(eqx.Module):
             self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=5, activation=jax.nn.relu, key=model_key)
 
         ## Print all attributes of the neural net
-        print("Hidden net attributes are: ", self.sta_hidden_layers.__dict__.keys())
+        # print("Hidden net attributes are: ", self.sta_hidden_layers.__dict__.keys())
 
         ## TODO what follows is highly brittle (only works for MLPs)
         in_hidden_features = self.sta_hidden_layers.layers[0].in_features
@@ -59,7 +59,7 @@ class DynamicNet(eqx.Module):
         # if hasattr(neural_net, "prediction_layer"):     ## TODO make sure the user never sets a prediction layer
         #     self.dyn_prediction_layer = neural_net.prediction_layer
         # else:
-        print("output and pred size:", output_size, pred_size)
+        # print("output and pred size:", output_size, pred_size)
         # pred_in_size = output_size if output_size>0 else 1
         # lim = 1/(pred_in_size+1)
         self.dyn_prediction_layer = eqx.nn.Linear(output_size+1, pred_size, key=keys[2])
@@ -82,8 +82,8 @@ class DynamicNet(eqx.Module):
 
     def predict(self, x):
         ## Check shapes
-        print("X before prediction shape", x.shape)
-        print("dyn prediction layer", self.dyn_prediction_layer)
+        # print("X before prediction shape", x.shape)
+        # print("dyn prediction layer", self.dyn_prediction_layer)
         return self.dyn_prediction_layer(x)
 
 
@@ -170,7 +170,7 @@ def add_neurons_to_prediction_layer(neural_net:DynamicNet, nb_neurons:int, key=N
     new_layer_weight = glorot_uniform(shape=(old_output_size, old_input_size+nb_neurons), key=key)
     ## Print stuff before assign
     # print("Dyn layer", neural_net.dyn_prediction_layer.weight.shape, "new layer", new_layer_weight.shape)
-    print("old input size", old_input_size, "new input size", old_input_size+nb_neurons)
+    # print("old input size", old_input_size, "new input size", old_input_size+nb_neurons)
 
     new_layer_weight = new_layer_weight.at[:, :old_input_size].set(neural_net.dyn_prediction_layer.weight)
 

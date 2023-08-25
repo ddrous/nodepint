@@ -40,16 +40,19 @@ def define_shooting_function(nb_splits, times, rhs, integrator):
         # print("All Arguments: ", Z, z0)
 
         Z_ = [z0]
+        nz = z0.shape[0]
 
         for n in range(nb_splits):      ## TODO do this in parallel   
             ts = split_times[n]
             if n < nb_splits-1:
                 ts = jnp.concatenate([ts, split_times[n+1][0, jnp.newaxis]])      ## TODO do this just once, and reuse the ts later on
 
-            z_next = integrator(rhs, Z[n], t=ts)[-1,...]
+            # z_next = integrator(rhs, Z[n], t=ts)[-1,...]
+            z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=ts)[-1,...]
             Z_.append(z_next)
 
-        return Z - jnp.stack(Z_, axis=0)
+        # return Z - jnp.stack(Z_, axis=0)
+        return Z - jnp.concatenate(Z_, axis=0)
 
     return mtp_shooting_func
 
@@ -64,21 +67,25 @@ def newton_shooting(func, z0, B0=None, learning_rate=1., tol=1e-6, maxiter=10):
 
     B = B0
 
-    shape = B.shape
-    Nnz = shape[0]*shape[1]
+    # shape = B.shape
+    # Nnz = shape[0]*shape[1]
 
     ## Print func name and its arguments
     # print("Function name: ", func.__name__, "\nLocal vars: ", func.__code__.co_varnames, "\nFreevars: ", func.__code__.co_freevars)
 
     for _ in range(maxiter):
-        grad_inv = jnp.linalg.inv(grad(B, z0).reshape((Nnz, Nnz)))
+        # grad_inv = jnp.linalg.inv(grad(B, z0).reshape((Nnz, Nnz)))
+        # func_eval = func(B, z0).reshape((Nnz, 1))
 
-        B_new = B - learning_rate * grad_inv @ func(B, z0)
+        grad_inv = jnp.linalg.inv(grad(B, z0))
+        func_eval = func(B, z0)
+
+        B_new = B - learning_rate * grad_inv @ func_eval
         if jnp.linalg.norm(B_new - B) < tol:
             break
         B = B_new
 
-    print("Shape of the returned B is: ", B.shape)
+    # print("Shape of the returned B is: ", B.shape)
 
     return B        ## TODO B is currentlyb of size N \times nz, but should only be of size nz
 
