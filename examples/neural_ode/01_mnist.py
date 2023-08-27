@@ -2,6 +2,7 @@
 #%%
 import jax
 import jax.numpy as jnp
+import numpy as np
 import equinox as eqx
 import optax
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ class MLP(eqx.Module):
         key = get_key(key)
 
         self.layers = [eqx.nn.Linear(100, 100, key=key)]
-        for i in range(4):
+        for i in range(2):
             self.layers = self.layers + [jax.nn.relu, eqx.nn.Linear(100, 100, key=key)]
 
         # self.prediction_layer = eqx.nn.Linear(100, 10, key=key)
@@ -58,6 +59,8 @@ plt.show()
 ## Optax crossentropy loss
 loss = optax.softmax_cross_entropy
 optimscheme = optax.adam
+times = tuple(np.linspace(0, 1, 100).flatten())
+# times = 1
 
 ## Define the neural ODE
 neuralnet = MLP()
@@ -67,14 +70,14 @@ dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
                                     ds,
                                     pint_scheme="newton",
                                     proj_scheme="random",
-                                    solver=euler_integrator, 
+                                    integrator=euler_integrator, 
                                     # solver=dopri_integrator, 
                                     loss_fn=loss, 
                                     optim_scheme=optimscheme, 
                                     nb_processors=4, 
                                     shooting_learning_rate=1e-3, 
                                     scheduler=optax.constant_schedule(1e-3),
-                                    times=jnp.linspace(0, 1, 100),
+                                    times=times,
                                     nb_epochs=100)
 
 

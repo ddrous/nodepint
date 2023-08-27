@@ -6,6 +6,8 @@ import jax.numpy as jnp
 from jax.experimental.ode import odeint
 from functools import partial
 
+import numpy as np
+
 ## The interface of each integrator is:
 # - the function func,
 # - the input vector, 
@@ -31,19 +33,47 @@ def euler_step(func, y, t, dt):
     # print("Just print ret shape", ret[0].shape)
     return ret
 
+# def euler_integrator(func, y0, t, hmax=1e-2):
+
+#     ys = []
+#     y = y0
+#     curr_t = t[0]
+#     dt = min((hmax, jnp.min(t[1:] - t[:-1])))
+#     # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:]) * hmax, t[1:] - t[:-1]))
+
+#     while curr_t < t[-1]:
+
+#         y, curr_t = euler_step(func, y, curr_t, dt)
+#         ys.append(y)
+
+#     return jnp.stack(ys, axis=0)
+
+
+@partial(jax.jit, static_argnums=(0, 2, 3))
 def euler_integrator(func, y0, t, hmax=1e-2):
 
-    ys = []
-    y = y0
-    curr_t = t[0]
-    dt = min((hmax, jnp.min(t[1:] - t[:-1])))
+    # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
+    # nb_iter = ((t[-1] - t[0]) / dt).astype(int)
 
-    while curr_t < t[-1]:
+    t = np.array(t)
+    dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
+    nb_iter = int((t[-1] - t[0]) / dt)
 
-        y, curr_t = euler_step(func, y, curr_t, dt)
-        ys.append(y)
+    def body_func(i, yt):       ## TODO this is sooo not functional
+        newy, newt = euler_step(func, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
+        yt = yt.at[i, 0].set(newt)
+        yt = yt.at[i, 1:].set(newy)
+        return yt
 
-    return jnp.stack(ys, axis=0)
+    print("Nb iter", nb_iter, y0.shape)
+    yt = jnp.zeros((nb_iter, y0.shape[0]+1))
+    yt = yt.at[0, 0].set(t[0])
+    yt = yt.at[0, 1:].set(y0)
+
+    yt = jax.lax.fori_loop(1, nb_iter, body_func, yt)
+
+    return yt[:, 1:] 
+
 
 
 ## RBF integrator (TODO from Updec)

@@ -43,7 +43,7 @@ class DynamicNet(eqx.Module):
         if neural_net is not None:
             self.sta_hidden_layers = neural_net
         else:
-            self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=5, activation=jax.nn.relu, key=model_key)
+            self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=model_key)
 
         ## Print all attributes of the neural net
         # print("Hidden net attributes are: ", self.sta_hidden_layers.__dict__.keys())
@@ -70,6 +70,10 @@ class DynamicNet(eqx.Module):
         # print("Values and shapes of t and x:", t.shape, x.shape)
 
         tx = jnp.concatenate([t, x], axis=-1)
+        # tx = jnp.concatenate([jnp.array([t]), x], axis=-1)
+
+        print("tx shape", tx.shape, t.shape, x.shape)
+
         # print("tx size", tx.shape, self.dyn_input_size)
         # print("dyn input layer", self.dyn_input_layer)
         y = self.dyn_input_layer(tx)

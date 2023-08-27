@@ -3,6 +3,7 @@
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import equinox as eqx
 from equinox import Module
 from datasets import Dataset
@@ -13,12 +14,12 @@ from functools import partial
 from .neuralnets import (DynamicNet, 
                          add_neurons_to_input_layer, add_neurons_to_output_layer, add_neurons_to_prediction_layer,
                          partition_dynamic_net, combine_dynamic_net)
-from .pint import define_shooting_function, select_root_finding_function
+from .pint import select_root_finding_function, shooting_function
 from .projection import select_projection_scheme
 from .data import project_dataset_onto_basis, get_dataset_features
 
 
-def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, proj_scheme:str, solver:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors=4, nb_epochs=10, *args, **kwargs):
+def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, proj_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors=4, nb_epochs=10, *args, **kwargs):
     ## Steps in the for loop
     # - Sample a vector
     # - Convert the neural net (of class eqx.Module) into a dynamic one (of class DynamicNet)
@@ -37,9 +38,9 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     if isinstance(scheduler, float):
         scheduler = optax.constant_schedule(scheduler)
 
-    times = kwargs.get("times", jnp.linspace(0, 1, 1000))
-    if len(times.shape) == 1:
-        times = times[:, jnp.newaxis]
+    times = kwargs.get("times", tuple(np.linspace(0, 1, 100).flatten()))
+    # if len(times.shape) == 1:
+    #     times = times[:, jnp.newaxis]
 
     proj_scheme = select_projection_scheme(proj_scheme)
     print("Projection function name: ", proj_scheme.__name__)
@@ -48,9 +49,11 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     print("Time-parallel function name: ", pint_scheme.__name__)
 
     print("Optimisation scheme is: ", optim_scheme.__name__)
-    print("Integrator is: ", solver.__name__)
+    print("Integrator is: ", integrator.__name__)
 
     dynamic_net = DynamicNet(neural_net, pred_size=10)
+
+    print("Dynamic net construction, done !")
 
     max_projection_size = 4 ## TODO make this related to the dataset dimension
     basis = None    ## Initialise the basis
@@ -61,12 +64,11 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         ## Get the size of the data
         # data_feature = list(get_dataset_features(data))[0]
         data_feature = "image"
-        vec_size = jnp.prod(jnp.asarray(data[data_feature][0].shape[:]))
-
+        vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
         ## Sample a vector
         basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=1, key=None)
 
-        print("\nBasis shape:", basis.shape)
+        print("\nBasis constructed, with shape:", basis.shape)
 
         ## Add neurons to the Dynamic NeuralNet's input, output, and prediction layers
         dynamic_net = add_neurons_to_input_layer(dynamic_net, nb_neurons)
@@ -76,13 +78,15 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         ## Project the data on the current basis
         # new_data = project_dataset_onto_basis(data, basis)       ## TODO project data piece by piece on the new basis (in the neuralnet_update function)
 
+        print("Adding neurons to dynamic net's layers, done !")
+
         # print("New data shape:", new_data[0].shape, "an element", new_data[0][0])
 
         ## Define shooting function
-        shooting_fn = define_shooting_function(nb_processors, times, dynamic_net, solver)
+        # shooting_fn = define_shooting_function(nb_processors, times, dynamic_net, integrator)
 
         ## Find the solution to that ODE using PinT
-        dynamic_net, loss_ht = neuralnet_update(dynamic_net, data, basis, pint_scheme, shooting_fn, nb_processors, loss_fn, optim_scheme, scheduler, nb_epochs)
+        dynamic_net, loss_ht = neuralnet_update(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, loss_fn, optim_scheme, scheduler, nb_epochs)
 
         loss_hts.append(loss_ht)
 
@@ -90,7 +94,7 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
 
 
 # @partial(eqx.filter_jit, static_argnames=("pint_scheme", "shooting_fn", "nb_processors"))
-def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_processors, loss_fn, optim_scheme, scheduler, nb_epochs):
+def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_processors, times, integrator, loss_fn, optim_scheme, scheduler, nb_epochs):
 
     ## Partition the dynamic net into static and dynamic parts
     params, static = partition_dynamic_net(neural_net)
@@ -107,7 +111,7 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
         loss_eph = 0
 
         # for data_point, label in zip(*dataset):
-        for batch in dataset.iter(batch_size=32):
+        for batch in dataset.iter(batch_size=2):
             x, y = batch["image"], batch["label"]
 
             x = x.reshape((x.shape[0], -1)) @ basis
@@ -121,7 +125,7 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 
             # loss_eph += loss_val
 
-            params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, optimiser, optstate)
+            params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate)
 
             loss_eph += jnp.sum(loss_val)
 
@@ -133,15 +137,28 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
     return neural_net, jnp.array(loss_ht)
 
 
+
+@partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
+@partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser"))
+def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate):
+    loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+
+    updates, optstate = optimiser.update(grad, optstate, params)
+    params = optax.apply_updates(params, updates)
+
+    return params, optstate, loss_val
+
+
+
 ## A loss that only works for neural ODEs
-def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors):
+def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator):
     neural_net = combine_dynamic_net(params, static)
 
     sht_init = jnp.ones((nb_processors+1, x.shape[0])).flatten()  ## TODO think of better HOT initialisation
 
     # print("x shape:", x.shape, "an element", x[0], "res", pint_scheme(shooting_fn, z0=x, B0=sht_init).shape)
 
-    final_feature = pint_scheme(shooting_fn, z0=x, B0=sht_init)[-x.shape[0]:]
+    final_feature = pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator)[-x.shape[0]:]
 
     # print("Final feature shape:", final_feature.shape, "an element", final_feature[0])
 
@@ -150,17 +167,6 @@ def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proces
     # print("y_pred shape:", y_pred.shape, "y shape:", y.shape, "feauture", final_feature.shape)
     return loss_fn(y_pred, y)
 
-
-
-@partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None), out_axes=0)
-@partial(jax.jit, static_argnums=(1, 4, 5, 6, 7, 8))
-def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, optimiser, optstate):
-    loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors)
-
-    updates, optstate = optimiser.update(grad, optstate, params)
-    params = optax.apply_updates(params, updates)
-
-    return params, optstate, loss_val
 
 
 ## Other considerations
