@@ -23,7 +23,9 @@ import numpy as np
 def select_root_finding_function(pint_scheme:str):
 
     if pint_scheme=="newton":
-        root_finder = newton_root_finder       ## Use partial if necessary
+        root_finder = newton_root_finder
+    elif pint_scheme=="direct":
+        root_finder = direct_root_finder       ## Use partial if necessary
     elif pint_scheme=="sequential":
         root_finder = sequential_root_finder
     else:
@@ -75,11 +77,15 @@ def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
     Z_ = [z0]
     nz = z0.shape[0]
 
+    print("Check every argument's type:", type(Z), type(z0), type(times), type(rhs), type(integrator))
+
     for n in range(nb_splits):      ## TODO do this in parallel   
         ts = split_times[n]
         if n < nb_splits-1:
             ts = np.concatenate([ts, split_times[n+1][0, jnp.newaxis]])      ## TODO do this just once, and reuse the ts later on
-            ts = tuple(ts.flatten())
+            ## CHCEKS NANs in ts
+        ts = tuple(ts.flatten())
+        # ts = tuple(map(lambda x: float(x), ts))
 
         # z_next = integrator(rhs, Z[n], t=ts)[-1,...]
         # print("Types of all arguments: ", type(rhs), type(Z), type(ts), type(z0))
@@ -96,7 +102,7 @@ def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
 ## Newton's method - TODO we still need to define:
 # - custom JVP rule https://jax.readthedocs.io/en/latest/notebooks/Custom_derivative_rules_for_Python_code.html
 # - example of fixed-point interation in PyTorch http://implicit-layers-tutorial.org/deep_equilibrium_models/
-@partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8))
+@partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
 def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate=1., tol=1e-6, maxiter=10):
     grad = jax.jacfwd(func)
 
@@ -109,13 +115,13 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning
     # print("Function name: ", func.__name__, "\nLocal vars: ", func.__code__.co_varnames, "\nFreevars: ", func.__code__.co_freevars)
 
     # times = jnp.array(times)[:, jnp.newaxis]
-    func(B, z0, nb_splits, times, rhs, integrator)
+    # func(B, z0, nb_splits, times, rhs, integrator)
 
     for _ in range(maxiter):
         # grad_inv = jnp.linalg.inv(grad(B, z0).reshape((Nnz, Nnz)))
         # func_eval = func(B, z0).reshape((Nnz, 1))
 
-        print("Types of all arguments: ", type(rhs), type(B), type(z0), type(times), type(rhs), type(integrator))
+        print("Types of all arguments: ", type(rhs), type(B), type(z0), type(times), type(times[0]), type(integrator))
 
         grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
         func_eval = func(B, z0, nb_splits, times, rhs, integrator)
@@ -131,7 +137,8 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning
 
 
 
-def direct_root_finder(func, z0, B0=None, learning_rate=1., tol=1e-6, maxiter=10):
+@partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
+def direct_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate=1., tol=1e-6, maxiter=10):
     grad = jax.jacfwd(func)
 
     B = B0
@@ -141,8 +148,10 @@ def direct_root_finder(func, z0, B0=None, learning_rate=1., tol=1e-6, maxiter=10
 
     for _ in range(maxiter):
         ## Solve a linear system
-        B_new = jnp.linalg.solve(  grad(B, z0), B - func(B, z0))        ## FIx this
+        grad_eval = grad(B, z0, nb_splits, times, rhs, integrator)
+        func_eval = func(B, z0, nb_splits, times, rhs, integrator)
 
+        B_new = B + jnp.linalg.solve(grad_eval, -func_eval)
 
         if jnp.linalg.norm(B_new - B) < tol:
             break

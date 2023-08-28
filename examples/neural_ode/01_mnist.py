@@ -59,7 +59,7 @@ plt.show()
 ## Optax crossentropy loss
 loss = optax.softmax_cross_entropy
 optimscheme = optax.adam
-times = tuple(np.linspace(0, 1, 100).flatten())
+times = tuple(np.linspace(0, 1, 101).flatten())
 # times = 1
 
 ## Define the neural ODE
@@ -69,6 +69,7 @@ neuralnet = MLP()
 dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
                                     ds,
                                     pint_scheme="newton",
+                                    # pint_scheme="direct",
                                     proj_scheme="random",
                                     integrator=euler_integrator, 
                                     # solver=dopri_integrator, 
