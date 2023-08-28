@@ -61,6 +61,7 @@ def euler_integrator(func, y0, t, hmax=1e-2):
 
     def body_func(i, yt):       ## TODO this is sooo not functional
         newy, newt = euler_step(func, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
+        print("newy", newy.shape, "newt", newt.shape, "yt", yt.shape)
         yt = yt.at[i, 0].set(newt)
         yt = yt.at[i, 1:].set(newy)
         return yt
