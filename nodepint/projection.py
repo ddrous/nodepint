@@ -39,6 +39,12 @@ def random_sampling(old_basis:jax.Array=None, orig_vec_size:int=None, nb_new_vec
     # print("bases shapes: ", old_basis, ret[0].shape)
     return ret
 
+
+def radermacher_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
+    """Should produce uniformly distributed sine vectors"""
+    pass
+
+
 def learned_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     pass
 

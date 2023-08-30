@@ -45,6 +45,8 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     proj_scheme = select_projection_scheme(proj_scheme)
     print("Projection function name: ", proj_scheme.__name__)
 
+    ## TODO use many projections per-data points
+
     pint_scheme = select_root_finding_function(pint_scheme)
     print("Time-parallel function name: ", pint_scheme.__name__)
 
