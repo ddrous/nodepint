@@ -49,11 +49,13 @@ def euler_step(func, y, t, dt):
 #     return jnp.stack(ys, axis=0)
 
 
-@partial(jax.jit, static_argnums=(0, 2, 3))
+# @partial(jax.jit, static_argnums=(0, 2, 3))
 def euler_integrator(func, y0, t, hmax=1e-2):
 
     # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     # nb_iter = ((t[-1] - t[0]) / dt).astype(int)
+
+    print("Types:", type(t), t, type(t[0]))
 
     t = np.array(t)
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
@@ -61,8 +63,9 @@ def euler_integrator(func, y0, t, hmax=1e-2):
 
     def body_func(i, yt):       ## TODO this is sooo not functional
         newy, newt = euler_step(func, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
-        print("newy", newy.shape, "newt", newt.shape, "yt", yt.shape)
-        yt = yt.at[i, 0].set(newt)
+        # print("newy", newy.shape, "newt", newt.shape, "yt", yt.shape)
+        # print("newy", newy, "newt", newt, "yt", yt)
+        yt = yt.at[i, 0].set(newt[0])
         yt = yt.at[i, 1:].set(newy)
         return yt
 

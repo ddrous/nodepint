@@ -40,7 +40,7 @@ def extract_all_data(ds:Dataset, features: Collection[str] = None) -> Collection
     """
     if features is None:
         features = get_dataset_features(ds)
-    return tuple([ds[:50][feature] for feature in features])        ## TODO! do this in batches !
+    return tuple([ds[:10][feature] for feature in features])        ## TODO! do this in batches !
 
 def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
     """

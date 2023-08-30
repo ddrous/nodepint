@@ -1,0 +1,1840 @@
+Traceback (most recent call last):
+  File "/Users/ddrous/Projects/NodePinT/examples/neural_ode/01_mnist.py", line 69, in <module>
+    dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 89, in train_parallel_neural_ode
+    dynamic_net, loss_ht = neuralnet_update(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, loss_fn, optim_scheme, scheduler, nb_epochs)
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 128, in neuralnet_update
+    params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 1239, in vmap_f
+    out_flat = batching.batch(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 208, in cache_miss
+    outs, out_flat, out_tree, args_flat = _python_pjit_helper(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 150, in _python_pjit_helper
+    args_flat, _, params, in_tree, out_tree, _ = infer_params_fn(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 301, in infer_params
+    return pjit.common_infer_params(pjit_info_args, *args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 474, in common_infer_params
+    jaxpr, consts, canonicalized_out_shardings_flat = _pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 935, in _pjit_jaxpr
+    jaxpr, final_consts, out_type = _create_pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 345, in memoized_fun
+    ans = call(fun, *args)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 888, in _create_pjit_jaxpr
+    jaxpr, global_out_avals, consts = pe.trace_to_jaxpr_dynamic(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/profiler.py", line 314, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/partial_eval.py", line 2150, in trace_to_jaxpr_dynamic
+    jaxpr, out_avals, consts = trace_to_subjaxpr_dynamic(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/partial_eval.py", line 2172, in trace_to_subjaxpr_dynamic
+    ans = fun.call_wrapped(*in_tracers_)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 144, in train_step
+    loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 722, in value_and_grad_f
+    ans, vjp_py = _vjp(f_partial, *dyn_args, reduce_axes=reduce_axes)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 2177, in _vjp
+    out_primal, out_vjp = ad.vjp(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/ad.py", line 139, in vjp
+    out_primals, pvals, jaxpr, consts = linearize(traceable, *primals)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/ad.py", line 128, in linearize
+    jaxpr, out_pvals, consts = pe.trace_to_jaxpr_nounits(jvpfun_flat, in_pvals)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/profiler.py", line 314, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/partial_eval.py", line 777, in trace_to_jaxpr_nounits
+    jaxpr, (out_pvals, consts, env) = fun.call_wrapped(pvals)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 161, in node_loss
+    final_feature = pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator)[-x.shape[0]:]
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 208, in cache_miss
+    outs, out_flat, out_tree, args_flat = _python_pjit_helper(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 150, in _python_pjit_helper
+    args_flat, _, params, in_tree, out_tree, _ = infer_params_fn(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 301, in infer_params
+    return pjit.common_infer_params(pjit_info_args, *args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 474, in common_infer_params
+    jaxpr, consts, canonicalized_out_shardings_flat = _pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 935, in _pjit_jaxpr
+    jaxpr, final_consts, out_type = _create_pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 345, in memoized_fun
+    ans = call(fun, *args)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 888, in _create_pjit_jaxpr
+    jaxpr, global_out_avals, consts = pe.trace_to_jaxpr_dynamic(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/profiler.py", line 314, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/partial_eval.py", line 2150, in trace_to_jaxpr_dynamic
+    jaxpr, out_avals, consts = trace_to_subjaxpr_dynamic(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/interpreters/partial_eval.py", line 2172, in trace_to_subjaxpr_dynamic
+    ans = fun.call_wrapped(*in_tracers_)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/Projects/NodePinT/nodepint/pint.py", line 122, in newton_root_finder
+    grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 841, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 1239, in vmap_f
+    out_flat = batching.batch(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 1957, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 188, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 166, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 208, in cache_miss
+    outs, out_flat, out_tree, args_flat = _python_pjit_helper(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 150, in _python_pjit_helper
+    args_flat, _, params, in_tree, out_tree, _ = infer_params_fn(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/api.py", line 301, in infer_params
+    return pjit.common_infer_params(pjit_info_args, *args, **kwargs)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 474, in common_infer_params
+    jaxpr, consts, canonicalized_out_shardings_flat = _pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/pjit.py", line 935, in _pjit_jaxpr
+    jaxpr, final_consts, out_type = _create_pjit_jaxpr(
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/linear_util.py", line 340, in memoized_fun
+    result = cache.get(key, None)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/core.py", line 655, in __bool__
+    def __bool__(self): return self.aval._bool(self)
+  File "/Users/ddrous/miniconda3/envs/jaxgpu/lib/python3.10/site-packages/jax/_src/core.py", line 1345, in error
+    raise ConcretizationTypeError(arg, fname_context)
+jax._src.traceback_util.UnfilteredStackTrace: jax.errors.ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: Traced<ShapedArray(bool[])>with<DynamicJaxprTrace(level=5/0)>
+The problem arose with the `bool` function. 
+The error occurred while tracing the function newton_root_finder at /Users/ddrous/Projects/NodePinT/nodepint/pint.py:101 for jit. This value became a tracer due to JAX operations on these lines:
+
+  operation a[35m:f32[5][39m = pjit[
+  jaxpr={ [34m[22m[1mlambda [39m[22m[22m; b[35m:f32[100,2][39m c[35m:f32[100][39m d[35m:f32[100,100][39m e[35m:f32[100][39m f[35m:f32[100,100][39m
+      g[35m:f32[100][39m h[35m:f32[100,100][39m i[35m:f32[100][39m j[35m:f32[1,100][39m k[35m:f32[1][39m l[35m:f32[5][39m m[35m:f32[1][39m. [34m[22m[1mlet
+      [39m[22m[22mn[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 0
+      o[35m:f32[26,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; p[35m:f32[100,2][39m q[35m:f32[100][39m r[35m:f32[100,100][39m s[35m:f32[100][39m t[35m:f32[100,100][39m
+            u[35m:f32[100][39m v[35m:f32[100,100][39m w[35m:f32[100][39m x[35m:f32[1,100][39m y[35m:f32[1][39m z[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mba[35m:f32[26,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(26, 2)
+            ] 0.0
+            bb[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bc[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bd[35m:i32[2][39m = concatenate[dimension=0] bb bc
+            be[35m:f32[26,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] ba bd 0.0
+            bh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bi[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            bj[35m:i32[2][39m = concatenate[dimension=0] bh bi
+            bk[35m:f32[26,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] be bj z
+            _[35m:i32[][39m bl[35m:f32[26,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bm[35m:f32[100,2][39m bn[35m:f32[100][39m bo[35m:f32[100,100][39m bp[35m:f32[100][39m
+                  bq[35m:f32[100,100][39m br[35m:f32[100][39m bs[35m:f32[100,100][39m bt[35m:f32[100][39m bu[35m:f32[1,100][39m
+                  bv[35m:f32[1][39m bw[35m:i32[][39m bx[35m:f32[26,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mby[35m:i32[][39m = add bw 1
+                  bz[35m:i32[][39m = sub bw 1
+                  ca[35m:bool[][39m = lt bz 0
+                  cb[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] bz
+                  cc[35m:i32[][39m = add cb 26
+                  cd[35m:i32[][39m = select_n ca bz cc
+                  ce[35m:bool[][39m = lt 1 0
+                  cf[35m:i32[][39m = add 1 2
+                  cg[35m:i32[][39m = select_n ce 1 cf
+                  ch[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] bx cd cg
+                  ci[35m:f32[1][39m = squeeze[dimensions=(0,)] ch
+                  cj[35m:i32[][39m = sub bw 1
+                  ck[35m:bool[][39m = lt cj 0
+                  cl[35m:i32[][39m = add cj 26
+                  cm[35m:i32[][39m = select_n ck cj cl
+                  cn[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] cm
+                  co[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] cn
+                  cp[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  cq[35m:i32[2][39m = concatenate[dimension=0] co cp
+                  cr[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] bx cq
+                  cs[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] cr
+                  ct[35m:f32[2][39m = concatenate[dimension=0] cs ci
+                  cu[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bm ct
+                  cv[35m:f32[100][39m = add cu bn
+                  cw[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bo cv
+                  cx[35m:f32[100][39m = add cw bp
+                  cy[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; cz[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mda[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] cz
+                      [34m[22m[1min [39m[22m[22m(da,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447235b0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] cx
+                  dd[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bq cy
+                  de[35m:f32[100][39m = add dd br
+                  df[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; dg[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mdh[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] dg
+                      [34m[22m[1min [39m[22m[22m(dh,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447236d0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] de
+                  di[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bs df
+                  dj[35m:f32[100][39m = add di bt
+                  dk[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bu dj
+                  dl[35m:f32[1][39m = add dk bv
+                  dm[35m:f32[1][39m = mul dl 0.009999999999999981
+                  dn[35m:f32[1][39m = add ci dm
+                  do[35m:f32[1][39m = add cs 0.009999999999999981
+                  dp[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] do 0
+                  dq[35m:f32[][39m = squeeze[dimensions=(0,)] dp
+                  dr[35m:bool[][39m = lt bw 0
+                  ds[35m:i32[][39m = add bw 26
+                  dt[35m:i32[][39m = select_n dr bw ds
+                  du[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] dt
+                  dv[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] du
+                  dw[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  dx[35m:i32[2][39m = concatenate[dimension=0] dv dw
+                  dy[35m:f32[26,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] bx dx dq
+                  dz[35m:bool[][39m = lt bw 0
+                  ea[35m:i32[][39m = add bw 26
+                  eb[35m:i32[][39m = select_n dz bw ea
+                  ec[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] eb
+                  ed[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] ec
+                  ee[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  ef[35m:i32[2][39m = concatenate[dimension=0] ed ee
+                  eg[35m:f32[26,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] dy ef dn
+                [34m[22m[1min [39m[22m[22m(by, eg) }
+              length=25
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] p q r s t u v w x y 1 bk
+            eh[35m:bool[][39m = lt 0 0
+            ei[35m:i32[][39m = add 0 26
+            ej[35m:i32[][39m = select_n eh 0 ei
+            ek[35m:bool[][39m = lt 1 0
+            el[35m:i32[][39m = add 1 2
+            em[35m:i32[][39m = select_n ek 1 el
+            en[35m:f32[26,1][39m = dynamic_slice[slice_sizes=(26, 1)] bl ej em
+          [34m[22m[1min [39m[22m[22m(en,) }
+        name=euler_integrator
+      ] b c d e f g h i j k n
+      eo[35m:i32[][39m = add -1 26
+      ep[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] eo
+      eq[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] ep
+      er[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] o eq
+      es[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 1
+      et[35m:f32[25,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; eu[35m:f32[100,2][39m ev[35m:f32[100][39m ew[35m:f32[100,100][39m ex[35m:f32[100][39m ey[35m:f32[100,100][39m
+            ez[35m:f32[100][39m fa[35m:f32[100,100][39m fb[35m:f32[100][39m fc[35m:f32[1,100][39m fd[35m:f32[1][39m fe[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mff[35m:f32[25,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(25, 2)
+            ] 0.0
+            fg[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fi[35m:i32[2][39m = concatenate[dimension=0] fg fh
+            fj[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] ff fi 0.25999999046325684
+            fk[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fl[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            fm[35m:i32[2][39m = concatenate[dimension=0] fk fl
+            fn[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] fj fm fe
+            _[35m:i32[][39m fo[35m:f32[25,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; fp[35m:f32[100,2][39m fq[35m:f32[100][39m fr[35m:f32[100,100][39m fs[35m:f32[100][39m
+                  ft[35m:f32[100,100][39m fu[35m:f32[100][39m fv[35m:f32[100,100][39m fw[35m:f32[100][39m fx[35m:f32[1,100][39m
+                  fy[35m:f32[1][39m fz[35m:i32[][39m ga[35m:f32[25,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mgb[35m:i32[][39m = add fz 1
+                  gc[35m:i32[][39m = sub fz 1
+                  gd[35m:bool[][39m = lt gc 0
+                  ge[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] gc
+                  gf[35m:i32[][39m = add ge 25
+                  gg[35m:i32[][39m = select_n gd gc gf
+                  gh[35m:bool[][39m = lt 1 0
+                  gi[35m:i32[][39m = add 1 2
+                  gj[35m:i32[][39m = select_n gh 1 gi
+                  gk[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] ga gg gj
+                  gl[35m:f32[1][39m = squeeze[dimensions=(0,)] gk
+                  gm[35m:i32[][39m = sub fz 1
+                  gn[35m:bool[][39m = lt gm 0
+                  go[35m:i32[][39m = add gm 25
+                  gp[35m:i32[][39m = select_n gn gm go
+                  gq[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] gp
+                  gr[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] gq
+                  gs[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  gt[35m:i32[2][39m = concatenate[dimension=0] gr gs
+                  gu[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] ga gt
+                  gv[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] gu
+                  gw[35m:f32[2][39m = concatenate[dimension=0] gv gl
+                  gx[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fp gw
+                  gy[35m:f32[100][39m = add gx fq
+                  gz[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fr gy
+                  ha[35m:f32[100][39m = add gz fs
+                  hb[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; hc[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mhd[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] hc
+                      [34m[22m[1min [39m[22m[22m(hd,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144770820>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] ha
+                  he[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] ft hb
+                  hf[35m:f32[100][39m = add he fu
+                  hg[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; hh[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mhi[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] hh
+                      [34m[22m[1min [39m[22m[22m(hi,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447709d0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] hf
+                  hj[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fv hg
+                  hk[35m:f32[100][39m = add hj fw
+                  hl[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fx hk
+                  hm[35m:f32[1][39m = add hl fy
+                  hn[35m:f32[1][39m = mul hm 0.009999999999999953
+                  ho[35m:f32[1][39m = add gl hn
+                  hp[35m:f32[1][39m = add gv 0.009999999999999953
+                  hq[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] hp 0
+                  hr[35m:f32[][39m = squeeze[dimensions=(0,)] hq
+                  hs[35m:bool[][39m = lt fz 0
+                  ht[35m:i32[][39m = add fz 25
+                  hu[35m:i32[][39m = select_n hs fz ht
+                  hv[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] hu
+                  hw[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] hv
+                  hx[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  hy[35m:i32[2][39m = concatenate[dimension=0] hw hx
+                  hz[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] ga hy hr
+                  ia[35m:bool[][39m = lt fz 0
+                  ib[35m:i32[][39m = add fz 25
+                  ic[35m:i32[][39m = select_n ia fz ib
+                  id[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] ic
+                  ie[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] id
+                  if[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  ig[35m:i32[2][39m = concatenate[dimension=0] ie if
+                  ih[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] hz ig ho
+                [34m[22m[1min [39m[22m[22m(gb, ih) }
+              length=24
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] eu ev ew ex ey ez fa fb fc fd 1 fn
+            ii[35m:bool[][39m = lt 0 0
+            ij[35m:i32[][39m = add 0 25
+            ik[35m:i32[][39m = select_n ii 0 ij
+            il[35m:bool[][39m = lt 1 0
+            im[35m:i32[][39m = add 1 2
+            in[35m:i32[][39m = select_n il 1 im
+            io[35m:f32[25,1][39m = dynamic_slice[slice_sizes=(25, 1)] fo ik in
+          [34m[22m[1min [39m[22m[22m(io,) }
+        name=euler_integrator
+      ] b c d e f g h i j k es
+      ip[35m:i32[][39m = add -1 25
+      iq[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] ip
+      ir[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] iq
+      is[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] et ir
+      it[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 2
+      iu[35m:f32[25,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; iv[35m:f32[100,2][39m iw[35m:f32[100][39m ix[35m:f32[100,100][39m iy[35m:f32[100][39m iz[35m:f32[100,100][39m
+            ja[35m:f32[100][39m jb[35m:f32[100,100][39m jc[35m:f32[100][39m jd[35m:f32[1,100][39m je[35m:f32[1][39m jf[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mjg[35m:f32[25,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(25, 2)
+            ] 0.0
+            jh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            ji[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            jj[35m:i32[2][39m = concatenate[dimension=0] jh ji
+            jk[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] jg jj 0.5099999904632568
+            jl[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            jm[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            jn[35m:i32[2][39m = concatenate[dimension=0] jl jm
+            jo[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] jk jn jf
+            _[35m:i32[][39m jp[35m:f32[25,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; jq[35m:f32[100,2][39m jr[35m:f32[100][39m js[35m:f32[100,100][39m jt[35m:f32[100][39m
+                  ju[35m:f32[100,100][39m jv[35m:f32[100][39m jw[35m:f32[100,100][39m jx[35m:f32[100][39m jy[35m:f32[1,100][39m
+                  jz[35m:f32[1][39m ka[35m:i32[][39m kb[35m:f32[25,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mkc[35m:i32[][39m = add ka 1
+                  kd[35m:i32[][39m = sub ka 1
+                  ke[35m:bool[][39m = lt kd 0
+                  kf[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] kd
+                  kg[35m:i32[][39m = add kf 25
+                  kh[35m:i32[][39m = select_n ke kd kg
+                  ki[35m:bool[][39m = lt 1 0
+                  kj[35m:i32[][39m = add 1 2
+                  kk[35m:i32[][39m = select_n ki 1 kj
+                  kl[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] kb kh kk
+                  km[35m:f32[1][39m = squeeze[dimensions=(0,)] kl
+                  kn[35m:i32[][39m = sub ka 1
+                  ko[35m:bool[][39m = lt kn 0
+                  kp[35m:i32[][39m = add kn 25
+                  kq[35m:i32[][39m = select_n ko kn kp
+                  kr[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] kq
+                  ks[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] kr
+                  kt[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  ku[35m:i32[2][39m = concatenate[dimension=0] ks kt
+                  kv[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] kb ku
+                  kw[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] kv
+                  kx[35m:f32[2][39m = concatenate[dimension=0] kw km
+                  ky[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jq kx
+                  kz[35m:f32[100][39m = add ky jr
+                  la[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] js kz
+                  lb[35m:f32[100][39m = add la jt
+                  lc[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; ld[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mle[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] ld
+                      [34m[22m[1min [39m[22m[22m(le,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771240>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] lb
+                  lf[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] ju lc
+                  lg[35m:f32[100][39m = add lf jv
+                  lh[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; li[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mlj[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] li
+                      [34m[22m[1min [39m[22m[22m(lj,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447713f0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] lg
+                  lk[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jw lh
+                  ll[35m:f32[100][39m = add lk jx
+                  lm[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jy ll
+                  ln[35m:f32[1][39m = add lm jz
+                  lo[35m:f32[1][39m = mul ln 0.009999999999999898
+                  lp[35m:f32[1][39m = add km lo
+                  lq[35m:f32[1][39m = add kw 0.009999999999999898
+                  lr[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] lq 0
+                  ls[35m:f32[][39m = squeeze[dimensions=(0,)] lr
+                  lt[35m:bool[][39m = lt ka 0
+                  lu[35m:i32[][39m = add ka 25
+                  lv[35m:i32[][39m = select_n lt ka lu
+                  lw[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] lv
+                  lx[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] lw
+                  ly[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  lz[35m:i32[2][39m = concatenate[dimension=0] lx ly
+                  ma[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] kb lz ls
+                  mb[35m:bool[][39m = lt ka 0
+                  mc[35m:i32[][39m = add ka 25
+                  md[35m:i32[][39m = select_n mb ka mc
+                  me[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] md
+                  mf[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] me
+                  mg[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  mh[35m:i32[2][39m = concatenate[dimension=0] mf mg
+                  mi[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] ma mh lp
+                [34m[22m[1min [39m[22m[22m(kc, mi) }
+              length=24
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] iv iw ix iy iz ja jb jc jd je 1 jo
+            mj[35m:bool[][39m = lt 0 0
+            mk[35m:i32[][39m = add 0 25
+            ml[35m:i32[][39m = select_n mj 0 mk
+            mm[35m:bool[][39m = lt 1 0
+            mn[35m:i32[][39m = add 1 2
+            mo[35m:i32[][39m = select_n mm 1 mn
+            mp[35m:f32[25,1][39m = dynamic_slice[slice_sizes=(25, 1)] jp ml mo
+          [34m[22m[1min [39m[22m[22m(mp,) }
+        name=euler_integrator
+      ] b c d e f g h i j k it
+      mq[35m:i32[][39m = add -1 25
+      mr[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] mq
+      ms[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] mr
+      mt[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] iu ms
+      mu[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 3
+      mv[35m:f32[24,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; mw[35m:f32[100,2][39m mx[35m:f32[100][39m my[35m:f32[100,100][39m mz[35m:f32[100][39m na[35m:f32[100,100][39m
+            nb[35m:f32[100][39m nc[35m:f32[100,100][39m nd[35m:f32[100][39m ne[35m:f32[1,100][39m nf[35m:f32[1][39m ng[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mnh[35m:f32[24,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(24, 2)
+            ] 0.0
+            ni[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nj[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nk[35m:i32[2][39m = concatenate[dimension=0] ni nj
+            nl[35m:f32[24,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] nh nk 0.7599999904632568
+            nm[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nn[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            no[35m:i32[2][39m = concatenate[dimension=0] nm nn
+            np[35m:f32[24,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] nl no ng
+            _[35m:i32[][39m nq[35m:f32[24,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; nr[35m:f32[100,2][39m ns[35m:f32[100][39m nt[35m:f32[100,100][39m nu[35m:f32[100][39m
+                  nv[35m:f32[100,100][39m nw[35m:f32[100][39m nx[35m:f32[100,100][39m ny[35m:f32[100][39m nz[35m:f32[1,100][39m
+                  oa[35m:f32[1][39m ob[35m:i32[][39m oc[35m:f32[24,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mod[35m:i32[][39m = add ob 1
+                  oe[35m:i32[][39m = sub ob 1
+                  of[35m:bool[][39m = lt oe 0
+                  og[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] oe
+                  oh[35m:i32[][39m = add og 24
+                  oi[35m:i32[][39m = select_n of oe oh
+                  oj[35m:bool[][39m = lt 1 0
+                  ok[35m:i32[][39m = add 1 2
+                  ol[35m:i32[][39m = select_n oj 1 ok
+                  om[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] oc oi ol
+                  on[35m:f32[1][39m = squeeze[dimensions=(0,)] om
+                  oo[35m:i32[][39m = sub ob 1
+                  op[35m:bool[][39m = lt oo 0
+                  oq[35m:i32[][39m = add oo 24
+                  or[35m:i32[][39m = select_n op oo oq
+                  os[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] or
+                  ot[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] os
+                  ou[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  ov[35m:i32[2][39m = concatenate[dimension=0] ot ou
+                  ow[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] oc ov
+                  ox[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] ow
+                  oy[35m:f32[2][39m = concatenate[dimension=0] ox on
+                  oz[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nr oy
+                  pa[35m:f32[100][39m = add oz ns
+                  pb[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nt pa
+                  pc[35m:f32[100][39m = add pb nu
+                  pd[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; pe[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mpf[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] pe
+                      [34m[22m[1min [39m[22m[22m(pf,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771ab0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] pc
+                  pg[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nv pd
+                  ph[35m:f32[100][39m = add pg nw
+                  pi[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; pj[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mpk[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] pj
+                      [34m[22m[1min [39m[22m[22m(pk,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771c60>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] ph
+                  pl[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nx pi
+                  pm[35m:f32[100][39m = add pl ny
+                  pn[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nz pm
+                  po[35m:f32[1][39m = add pn oa
+                  pp[35m:f32[1][39m = mul po 0.009999999999999898
+                  pq[35m:f32[1][39m = add on pp
+                  pr[35m:f32[1][39m = add ox 0.009999999999999898
+                  ps[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] pr 0
+                  pt[35m:f32[][39m = squeeze[dimensions=(0,)] ps
+                  pu[35m:bool[][39m = lt ob 0
+                  pv[35m:i32[][39m = add ob 24
+                  pw[35m:i32[][39m = select_n pu ob pv
+                  px[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] pw
+                  py[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] px
+                  pz[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  qa[35m:i32[2][39m = concatenate[dimension=0] py pz
+                  qb[35m:f32[24,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] oc qa pt
+                  qc[35m:bool[][39m = lt ob 0
+                  qd[35m:i32[][39m = add ob 24
+                  qe[35m:i32[][39m = select_n qc ob qd
+                  qf[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] qe
+                  qg[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] qf
+                  qh[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  qi[35m:i32[2][39m = concatenate[dimension=0] qg qh
+                  qj[35m:f32[24,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] qb qi pq
+                [34m[22m[1min [39m[22m[22m(od, qj) }
+              length=23
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] mw mx my mz na nb nc nd ne nf 1 np
+            qk[35m:bool[][39m = lt 0 0
+            ql[35m:i32[][39m = add 0 24
+            qm[35m:i32[][39m = select_n qk 0 ql
+            qn[35m:bool[][39m = lt 1 0
+            qo[35m:i32[][39m = add 1 2
+            qp[35m:i32[][39m = select_n qn 1 qo
+            qq[35m:f32[24,1][39m = dynamic_slice[slice_sizes=(24, 1)] nq qm qp
+          [34m[22m[1min [39m[22m[22m(qq,) }
+        name=euler_integrator
+      ] b c d e f g h i j k mu
+      qr[35m:i32[][39m = add -1 24
+      qs[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] qr
+      qt[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] qs
+      qu[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] mv qt
+      qv[35m:f32[5][39m = concatenate[dimension=0] m er is mt qu
+      qw[35m:f32[5][39m = sub l qv
+    [34m[22m[1min [39m[22m[22m(qw,) }
+  name=shooting_function
+] qx qy qz ra rb rc rd re rf rg rh ri
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:114 (newton_root_finder)
+
+  operation a[35m:bool[100,2][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[][39m = and b c
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[100][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[100,100][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+(Additional originating lines are not shown.)
+
+See https://jax.readthedocs.io/en/latest/errors.html#jax.errors.ConcretizationTypeError
+
+The stack trace below excludes JAX-internal frames.
+The preceding is the original exception that occurred, unmodified.
+
+--------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/ddrous/Projects/NodePinT/examples/neural_ode/01_mnist.py", line 69, in <module>
+    dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 89, in train_parallel_neural_ode
+    dynamic_net, loss_ht = neuralnet_update(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, loss_fn, optim_scheme, scheduler, nb_epochs)
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 128, in neuralnet_update
+    params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate)
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 144, in train_step
+    loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+  File "/Users/ddrous/Projects/NodePinT/nodepint/training.py", line 161, in node_loss
+    final_feature = pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator)[-x.shape[0]:]
+  File "/Users/ddrous/Projects/NodePinT/nodepint/pint.py", line 122, in newton_root_finder
+    grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
+jax.errors.ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: Traced<ShapedArray(bool[])>with<DynamicJaxprTrace(level=5/0)>
+The problem arose with the `bool` function. 
+The error occurred while tracing the function newton_root_finder at /Users/ddrous/Projects/NodePinT/nodepint/pint.py:101 for jit. This value became a tracer due to JAX operations on these lines:
+
+  operation a[35m:f32[5][39m = pjit[
+  jaxpr={ [34m[22m[1mlambda [39m[22m[22m; b[35m:f32[100,2][39m c[35m:f32[100][39m d[35m:f32[100,100][39m e[35m:f32[100][39m f[35m:f32[100,100][39m
+      g[35m:f32[100][39m h[35m:f32[100,100][39m i[35m:f32[100][39m j[35m:f32[1,100][39m k[35m:f32[1][39m l[35m:f32[5][39m m[35m:f32[1][39m. [34m[22m[1mlet
+      [39m[22m[22mn[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 0
+      o[35m:f32[26,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; p[35m:f32[100,2][39m q[35m:f32[100][39m r[35m:f32[100,100][39m s[35m:f32[100][39m t[35m:f32[100,100][39m
+            u[35m:f32[100][39m v[35m:f32[100,100][39m w[35m:f32[100][39m x[35m:f32[1,100][39m y[35m:f32[1][39m z[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mba[35m:f32[26,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(26, 2)
+            ] 0.0
+            bb[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bc[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bd[35m:i32[2][39m = concatenate[dimension=0] bb bc
+            be[35m:f32[26,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] ba bd 0.0
+            bh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            bi[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            bj[35m:i32[2][39m = concatenate[dimension=0] bh bi
+            bk[35m:f32[26,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] be bj z
+            _[35m:i32[][39m bl[35m:f32[26,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bm[35m:f32[100,2][39m bn[35m:f32[100][39m bo[35m:f32[100,100][39m bp[35m:f32[100][39m
+                  bq[35m:f32[100,100][39m br[35m:f32[100][39m bs[35m:f32[100,100][39m bt[35m:f32[100][39m bu[35m:f32[1,100][39m
+                  bv[35m:f32[1][39m bw[35m:i32[][39m bx[35m:f32[26,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mby[35m:i32[][39m = add bw 1
+                  bz[35m:i32[][39m = sub bw 1
+                  ca[35m:bool[][39m = lt bz 0
+                  cb[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] bz
+                  cc[35m:i32[][39m = add cb 26
+                  cd[35m:i32[][39m = select_n ca bz cc
+                  ce[35m:bool[][39m = lt 1 0
+                  cf[35m:i32[][39m = add 1 2
+                  cg[35m:i32[][39m = select_n ce 1 cf
+                  ch[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] bx cd cg
+                  ci[35m:f32[1][39m = squeeze[dimensions=(0,)] ch
+                  cj[35m:i32[][39m = sub bw 1
+                  ck[35m:bool[][39m = lt cj 0
+                  cl[35m:i32[][39m = add cj 26
+                  cm[35m:i32[][39m = select_n ck cj cl
+                  cn[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] cm
+                  co[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] cn
+                  cp[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  cq[35m:i32[2][39m = concatenate[dimension=0] co cp
+                  cr[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] bx cq
+                  cs[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] cr
+                  ct[35m:f32[2][39m = concatenate[dimension=0] cs ci
+                  cu[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bm ct
+                  cv[35m:f32[100][39m = add cu bn
+                  cw[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bo cv
+                  cx[35m:f32[100][39m = add cw bp
+                  cy[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; cz[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mda[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] cz
+                      [34m[22m[1min [39m[22m[22m(da,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447235b0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] cx
+                  dd[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bq cy
+                  de[35m:f32[100][39m = add dd br
+                  df[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; dg[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mdh[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] dg
+                      [34m[22m[1min [39m[22m[22m(dh,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447236d0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] de
+                  di[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bs df
+                  dj[35m:f32[100][39m = add di bt
+                  dk[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] bu dj
+                  dl[35m:f32[1][39m = add dk bv
+                  dm[35m:f32[1][39m = mul dl 0.009999999999999981
+                  dn[35m:f32[1][39m = add ci dm
+                  do[35m:f32[1][39m = add cs 0.009999999999999981
+                  dp[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] do 0
+                  dq[35m:f32[][39m = squeeze[dimensions=(0,)] dp
+                  dr[35m:bool[][39m = lt bw 0
+                  ds[35m:i32[][39m = add bw 26
+                  dt[35m:i32[][39m = select_n dr bw ds
+                  du[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] dt
+                  dv[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] du
+                  dw[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  dx[35m:i32[2][39m = concatenate[dimension=0] dv dw
+                  dy[35m:f32[26,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] bx dx dq
+                  dz[35m:bool[][39m = lt bw 0
+                  ea[35m:i32[][39m = add bw 26
+                  eb[35m:i32[][39m = select_n dz bw ea
+                  ec[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] eb
+                  ed[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] ec
+                  ee[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  ef[35m:i32[2][39m = concatenate[dimension=0] ed ee
+                  eg[35m:f32[26,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] dy ef dn
+                [34m[22m[1min [39m[22m[22m(by, eg) }
+              length=25
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] p q r s t u v w x y 1 bk
+            eh[35m:bool[][39m = lt 0 0
+            ei[35m:i32[][39m = add 0 26
+            ej[35m:i32[][39m = select_n eh 0 ei
+            ek[35m:bool[][39m = lt 1 0
+            el[35m:i32[][39m = add 1 2
+            em[35m:i32[][39m = select_n ek 1 el
+            en[35m:f32[26,1][39m = dynamic_slice[slice_sizes=(26, 1)] bl ej em
+          [34m[22m[1min [39m[22m[22m(en,) }
+        name=euler_integrator
+      ] b c d e f g h i j k n
+      eo[35m:i32[][39m = add -1 26
+      ep[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] eo
+      eq[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] ep
+      er[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] o eq
+      es[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 1
+      et[35m:f32[25,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; eu[35m:f32[100,2][39m ev[35m:f32[100][39m ew[35m:f32[100,100][39m ex[35m:f32[100][39m ey[35m:f32[100,100][39m
+            ez[35m:f32[100][39m fa[35m:f32[100,100][39m fb[35m:f32[100][39m fc[35m:f32[1,100][39m fd[35m:f32[1][39m fe[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mff[35m:f32[25,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(25, 2)
+            ] 0.0
+            fg[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fi[35m:i32[2][39m = concatenate[dimension=0] fg fh
+            fj[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] ff fi 0.25999999046325684
+            fk[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            fl[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            fm[35m:i32[2][39m = concatenate[dimension=0] fk fl
+            fn[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] fj fm fe
+            _[35m:i32[][39m fo[35m:f32[25,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; fp[35m:f32[100,2][39m fq[35m:f32[100][39m fr[35m:f32[100,100][39m fs[35m:f32[100][39m
+                  ft[35m:f32[100,100][39m fu[35m:f32[100][39m fv[35m:f32[100,100][39m fw[35m:f32[100][39m fx[35m:f32[1,100][39m
+                  fy[35m:f32[1][39m fz[35m:i32[][39m ga[35m:f32[25,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mgb[35m:i32[][39m = add fz 1
+                  gc[35m:i32[][39m = sub fz 1
+                  gd[35m:bool[][39m = lt gc 0
+                  ge[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] gc
+                  gf[35m:i32[][39m = add ge 25
+                  gg[35m:i32[][39m = select_n gd gc gf
+                  gh[35m:bool[][39m = lt 1 0
+                  gi[35m:i32[][39m = add 1 2
+                  gj[35m:i32[][39m = select_n gh 1 gi
+                  gk[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] ga gg gj
+                  gl[35m:f32[1][39m = squeeze[dimensions=(0,)] gk
+                  gm[35m:i32[][39m = sub fz 1
+                  gn[35m:bool[][39m = lt gm 0
+                  go[35m:i32[][39m = add gm 25
+                  gp[35m:i32[][39m = select_n gn gm go
+                  gq[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] gp
+                  gr[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] gq
+                  gs[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  gt[35m:i32[2][39m = concatenate[dimension=0] gr gs
+                  gu[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] ga gt
+                  gv[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] gu
+                  gw[35m:f32[2][39m = concatenate[dimension=0] gv gl
+                  gx[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fp gw
+                  gy[35m:f32[100][39m = add gx fq
+                  gz[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fr gy
+                  ha[35m:f32[100][39m = add gz fs
+                  hb[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; hc[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mhd[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] hc
+                      [34m[22m[1min [39m[22m[22m(hd,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144770820>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] ha
+                  he[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] ft hb
+                  hf[35m:f32[100][39m = add he fu
+                  hg[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; hh[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mhi[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] hh
+                      [34m[22m[1min [39m[22m[22m(hi,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447709d0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] hf
+                  hj[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fv hg
+                  hk[35m:f32[100][39m = add hj fw
+                  hl[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] fx hk
+                  hm[35m:f32[1][39m = add hl fy
+                  hn[35m:f32[1][39m = mul hm 0.009999999999999953
+                  ho[35m:f32[1][39m = add gl hn
+                  hp[35m:f32[1][39m = add gv 0.009999999999999953
+                  hq[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] hp 0
+                  hr[35m:f32[][39m = squeeze[dimensions=(0,)] hq
+                  hs[35m:bool[][39m = lt fz 0
+                  ht[35m:i32[][39m = add fz 25
+                  hu[35m:i32[][39m = select_n hs fz ht
+                  hv[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] hu
+                  hw[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] hv
+                  hx[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  hy[35m:i32[2][39m = concatenate[dimension=0] hw hx
+                  hz[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] ga hy hr
+                  ia[35m:bool[][39m = lt fz 0
+                  ib[35m:i32[][39m = add fz 25
+                  ic[35m:i32[][39m = select_n ia fz ib
+                  id[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] ic
+                  ie[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] id
+                  if[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  ig[35m:i32[2][39m = concatenate[dimension=0] ie if
+                  ih[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] hz ig ho
+                [34m[22m[1min [39m[22m[22m(gb, ih) }
+              length=24
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] eu ev ew ex ey ez fa fb fc fd 1 fn
+            ii[35m:bool[][39m = lt 0 0
+            ij[35m:i32[][39m = add 0 25
+            ik[35m:i32[][39m = select_n ii 0 ij
+            il[35m:bool[][39m = lt 1 0
+            im[35m:i32[][39m = add 1 2
+            in[35m:i32[][39m = select_n il 1 im
+            io[35m:f32[25,1][39m = dynamic_slice[slice_sizes=(25, 1)] fo ik in
+          [34m[22m[1min [39m[22m[22m(io,) }
+        name=euler_integrator
+      ] b c d e f g h i j k es
+      ip[35m:i32[][39m = add -1 25
+      iq[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] ip
+      ir[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] iq
+      is[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] et ir
+      it[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 2
+      iu[35m:f32[25,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; iv[35m:f32[100,2][39m iw[35m:f32[100][39m ix[35m:f32[100,100][39m iy[35m:f32[100][39m iz[35m:f32[100,100][39m
+            ja[35m:f32[100][39m jb[35m:f32[100,100][39m jc[35m:f32[100][39m jd[35m:f32[1,100][39m je[35m:f32[1][39m jf[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mjg[35m:f32[25,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(25, 2)
+            ] 0.0
+            jh[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            ji[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            jj[35m:i32[2][39m = concatenate[dimension=0] jh ji
+            jk[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] jg jj 0.5099999904632568
+            jl[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            jm[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            jn[35m:i32[2][39m = concatenate[dimension=0] jl jm
+            jo[35m:f32[25,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] jk jn jf
+            _[35m:i32[][39m jp[35m:f32[25,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; jq[35m:f32[100,2][39m jr[35m:f32[100][39m js[35m:f32[100,100][39m jt[35m:f32[100][39m
+                  ju[35m:f32[100,100][39m jv[35m:f32[100][39m jw[35m:f32[100,100][39m jx[35m:f32[100][39m jy[35m:f32[1,100][39m
+                  jz[35m:f32[1][39m ka[35m:i32[][39m kb[35m:f32[25,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mkc[35m:i32[][39m = add ka 1
+                  kd[35m:i32[][39m = sub ka 1
+                  ke[35m:bool[][39m = lt kd 0
+                  kf[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] kd
+                  kg[35m:i32[][39m = add kf 25
+                  kh[35m:i32[][39m = select_n ke kd kg
+                  ki[35m:bool[][39m = lt 1 0
+                  kj[35m:i32[][39m = add 1 2
+                  kk[35m:i32[][39m = select_n ki 1 kj
+                  kl[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] kb kh kk
+                  km[35m:f32[1][39m = squeeze[dimensions=(0,)] kl
+                  kn[35m:i32[][39m = sub ka 1
+                  ko[35m:bool[][39m = lt kn 0
+                  kp[35m:i32[][39m = add kn 25
+                  kq[35m:i32[][39m = select_n ko kn kp
+                  kr[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] kq
+                  ks[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] kr
+                  kt[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  ku[35m:i32[2][39m = concatenate[dimension=0] ks kt
+                  kv[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] kb ku
+                  kw[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] kv
+                  kx[35m:f32[2][39m = concatenate[dimension=0] kw km
+                  ky[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jq kx
+                  kz[35m:f32[100][39m = add ky jr
+                  la[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] js kz
+                  lb[35m:f32[100][39m = add la jt
+                  lc[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; ld[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mle[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] ld
+                      [34m[22m[1min [39m[22m[22m(le,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771240>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] lb
+                  lf[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] ju lc
+                  lg[35m:f32[100][39m = add lf jv
+                  lh[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; li[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mlj[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] li
+                      [34m[22m[1min [39m[22m[22m(lj,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x1447713f0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] lg
+                  lk[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jw lh
+                  ll[35m:f32[100][39m = add lk jx
+                  lm[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] jy ll
+                  ln[35m:f32[1][39m = add lm jz
+                  lo[35m:f32[1][39m = mul ln 0.009999999999999898
+                  lp[35m:f32[1][39m = add km lo
+                  lq[35m:f32[1][39m = add kw 0.009999999999999898
+                  lr[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] lq 0
+                  ls[35m:f32[][39m = squeeze[dimensions=(0,)] lr
+                  lt[35m:bool[][39m = lt ka 0
+                  lu[35m:i32[][39m = add ka 25
+                  lv[35m:i32[][39m = select_n lt ka lu
+                  lw[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] lv
+                  lx[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] lw
+                  ly[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  lz[35m:i32[2][39m = concatenate[dimension=0] lx ly
+                  ma[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] kb lz ls
+                  mb[35m:bool[][39m = lt ka 0
+                  mc[35m:i32[][39m = add ka 25
+                  md[35m:i32[][39m = select_n mb ka mc
+                  me[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] md
+                  mf[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] me
+                  mg[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  mh[35m:i32[2][39m = concatenate[dimension=0] mf mg
+                  mi[35m:f32[25,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] ma mh lp
+                [34m[22m[1min [39m[22m[22m(kc, mi) }
+              length=24
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] iv iw ix iy iz ja jb jc jd je 1 jo
+            mj[35m:bool[][39m = lt 0 0
+            mk[35m:i32[][39m = add 0 25
+            ml[35m:i32[][39m = select_n mj 0 mk
+            mm[35m:bool[][39m = lt 1 0
+            mn[35m:i32[][39m = add 1 2
+            mo[35m:i32[][39m = select_n mm 1 mn
+            mp[35m:f32[25,1][39m = dynamic_slice[slice_sizes=(25, 1)] jp ml mo
+          [34m[22m[1min [39m[22m[22m(mp,) }
+        name=euler_integrator
+      ] b c d e f g h i j k it
+      mq[35m:i32[][39m = add -1 25
+      mr[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] mq
+      ms[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] mr
+      mt[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] iu ms
+      mu[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] l 3
+      mv[35m:f32[24,1][39m = pjit[
+        jaxpr={ [34m[22m[1mlambda [39m[22m[22m; mw[35m:f32[100,2][39m mx[35m:f32[100][39m my[35m:f32[100,100][39m mz[35m:f32[100][39m na[35m:f32[100,100][39m
+            nb[35m:f32[100][39m nc[35m:f32[100,100][39m nd[35m:f32[100][39m ne[35m:f32[1,100][39m nf[35m:f32[1][39m ng[35m:f32[1][39m. [34m[22m[1mlet
+            [39m[22m[22mnh[35m:f32[24,2][39m = broadcast_in_dim[
+              broadcast_dimensions=()
+              shape=(24, 2)
+            ] 0.0
+            ni[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nj[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nk[35m:i32[2][39m = concatenate[dimension=0] ni nj
+            nl[35m:f32[24,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] nh nk 0.7599999904632568
+            nm[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 0
+            nn[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] 1
+            no[35m:i32[2][39m = concatenate[dimension=0] nm nn
+            np[35m:f32[24,2][39m = scatter[
+              dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+              indices_are_sorted=True
+              mode=GatherScatterMode.FILL_OR_DROP
+              unique_indices=True
+              update_consts=()
+              update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+            ] nl no ng
+            _[35m:i32[][39m nq[35m:f32[24,2][39m = scan[
+              jaxpr={ [34m[22m[1mlambda [39m[22m[22m; nr[35m:f32[100,2][39m ns[35m:f32[100][39m nt[35m:f32[100,100][39m nu[35m:f32[100][39m
+                  nv[35m:f32[100,100][39m nw[35m:f32[100][39m nx[35m:f32[100,100][39m ny[35m:f32[100][39m nz[35m:f32[1,100][39m
+                  oa[35m:f32[1][39m ob[35m:i32[][39m oc[35m:f32[24,2][39m. [34m[22m[1mlet
+                  [39m[22m[22mod[35m:i32[][39m = add ob 1
+                  oe[35m:i32[][39m = sub ob 1
+                  of[35m:bool[][39m = lt oe 0
+                  og[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] oe
+                  oh[35m:i32[][39m = add og 24
+                  oi[35m:i32[][39m = select_n of oe oh
+                  oj[35m:bool[][39m = lt 1 0
+                  ok[35m:i32[][39m = add 1 2
+                  ol[35m:i32[][39m = select_n oj 1 ok
+                  om[35m:f32[1,1][39m = dynamic_slice[slice_sizes=(1, 1)] oc oi ol
+                  on[35m:f32[1][39m = squeeze[dimensions=(0,)] om
+                  oo[35m:i32[][39m = sub ob 1
+                  op[35m:bool[][39m = lt oo 0
+                  oq[35m:i32[][39m = add oo 24
+                  or[35m:i32[][39m = select_n op oo oq
+                  os[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] or
+                  ot[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] os
+                  ou[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  ov[35m:i32[2][39m = concatenate[dimension=0] ot ou
+                  ow[35m:f32[][39m = gather[
+                    dimension_numbers=GatherDimensionNumbers(offset_dims=(), collapsed_slice_dims=(0, 1), start_index_map=(0, 1))
+                    fill_value=None
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.PROMISE_IN_BOUNDS
+                    slice_sizes=(1, 1)
+                    unique_indices=True
+                  ] oc ov
+                  ox[35m:f32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] ow
+                  oy[35m:f32[2][39m = concatenate[dimension=0] ox on
+                  oz[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nr oy
+                  pa[35m:f32[100][39m = add oz ns
+                  pb[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nt pa
+                  pc[35m:f32[100][39m = add pb nu
+                  pd[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; pe[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mpf[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] pe
+                      [34m[22m[1min [39m[22m[22m(pf,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771ab0>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] pc
+                  pg[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nv pd
+                  ph[35m:f32[100][39m = add pg nw
+                  pi[35m:f32[100][39m = custom_jvp_call[
+                    call_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; pj[35m:f32[100][39m. [34m[22m[1mlet
+                        [39m[22m[22mpk[35m:f32[100][39m = pjit[
+                          jaxpr={ [34m[22m[1mlambda [39m[22m[22m; db[35m:f32[100][39m. [34m[22m[1mlet
+                              [39m[22m[22mdc[35m:f32[100][39m = max db 0.0
+                            [34m[22m[1min [39m[22m[22m(dc,) }
+                          name=relu
+                        ] pj
+                      [34m[22m[1min [39m[22m[22m(pk,) }
+                    jvp_jaxpr_thunk=<function _memoize.<locals>.memoized at 0x144771c60>
+                    num_consts=0
+                    symbolic_zeros=False
+                  ] ph
+                  pl[35m:f32[100][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nx pi
+                  pm[35m:f32[100][39m = add pl ny
+                  pn[35m:f32[1][39m = dot_general[
+                    dimension_numbers=(([1], [0]), ([], []))
+                  ] nz pm
+                  po[35m:f32[1][39m = add pn oa
+                  pp[35m:f32[1][39m = mul po 0.009999999999999898
+                  pq[35m:f32[1][39m = add on pp
+                  pr[35m:f32[1][39m = add ox 0.009999999999999898
+                  ps[35m:f32[1][39m = dynamic_slice[slice_sizes=(1,)] pr 0
+                  pt[35m:f32[][39m = squeeze[dimensions=(0,)] ps
+                  pu[35m:bool[][39m = lt ob 0
+                  pv[35m:i32[][39m = add ob 24
+                  pw[35m:i32[][39m = select_n pu ob pv
+                  px[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] pw
+                  py[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] px
+                  pz[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 0
+                  qa[35m:i32[2][39m = concatenate[dimension=0] py pz
+                  qb[35m:f32[24,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(), inserted_window_dims=(0, 1), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] oc qa pt
+                  qc[35m:bool[][39m = lt ob 0
+                  qd[35m:i32[][39m = add ob 24
+                  qe[35m:i32[][39m = select_n qc ob qd
+                  qf[35m:i32[][39m = convert_element_type[
+                    new_dtype=int32
+                    weak_type=False
+                  ] qe
+                  qg[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] qf
+                  qh[35m:i32[1][39m = broadcast_in_dim[
+                    broadcast_dimensions=()
+                    shape=(1,)
+                  ] 1
+                  qi[35m:i32[2][39m = concatenate[dimension=0] qg qh
+                  qj[35m:f32[24,2][39m = scatter[
+                    dimension_numbers=ScatterDimensionNumbers(update_window_dims=(0,), inserted_window_dims=(0,), scatter_dims_to_operand_dims=(0, 1))
+                    indices_are_sorted=True
+                    mode=GatherScatterMode.FILL_OR_DROP
+                    unique_indices=True
+                    update_consts=()
+                    update_jaxpr={ [34m[22m[1mlambda [39m[22m[22m; bf[35m:f32[][39m bg[35m:f32[][39m. [34m[22m[1mlet[39m[22m[22m  [34m[22m[1min [39m[22m[22m(bg,) }
+                  ] qb qi pq
+                [34m[22m[1min [39m[22m[22m(od, qj) }
+              length=23
+              linear=(False, False, False, False, False, False, False, False, False, False, False, False)
+              num_carry=2
+              num_consts=10
+              reverse=False
+              unroll=1
+            ] mw mx my mz na nb nc nd ne nf 1 np
+            qk[35m:bool[][39m = lt 0 0
+            ql[35m:i32[][39m = add 0 24
+            qm[35m:i32[][39m = select_n qk 0 ql
+            qn[35m:bool[][39m = lt 1 0
+            qo[35m:i32[][39m = add 1 2
+            qp[35m:i32[][39m = select_n qn 1 qo
+            qq[35m:f32[24,1][39m = dynamic_slice[slice_sizes=(24, 1)] nq qm qp
+          [34m[22m[1min [39m[22m[22m(qq,) }
+        name=euler_integrator
+      ] b c d e f g h i j k mu
+      qr[35m:i32[][39m = add -1 24
+      qs[35m:i32[][39m = convert_element_type[new_dtype=int32 weak_type=False] qr
+      qt[35m:i32[1][39m = broadcast_in_dim[broadcast_dimensions=() shape=(1,)] qs
+      qu[35m:f32[1][39m = gather[
+        dimension_numbers=GatherDimensionNumbers(offset_dims=(0,), collapsed_slice_dims=(0,), start_index_map=(0,))
+        fill_value=None
+        indices_are_sorted=True
+        mode=GatherScatterMode.PROMISE_IN_BOUNDS
+        slice_sizes=(1, 1)
+        unique_indices=True
+      ] mv qt
+      qv[35m:f32[5][39m = concatenate[dimension=0] m er is mt qu
+      qw[35m:f32[5][39m = sub l qv
+    [34m[22m[1min [39m[22m[22m(qw,) }
+  name=shooting_function
+] qx qy qz ra rb rc rd re rf rg rh ri
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:114 (newton_root_finder)
+
+  operation a[35m:bool[100,2][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[][39m = and b c
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[100][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+  operation a[35m:bool[100,100][39m = eq b b
+    from line /Users/ddrous/Projects/NodePinT/nodepint/pint.py:122 (newton_root_finder)
+
+(Additional originating lines are not shown.)
+
+See https://jax.readthedocs.io/en/latest/errors.html#jax.errors.ConcretizationTypeError

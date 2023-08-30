@@ -16,7 +16,7 @@ from .neuralnets import (DynamicNet,
                          partition_dynamic_net, combine_dynamic_net)
 from .pint import select_root_finding_function, shooting_function
 from .projection import select_projection_scheme
-from .data import project_dataset_onto_basis, get_dataset_features
+from .data import project_dataset_onto_basis, get_dataset_features, extract_all_data
 
 
 def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, proj_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors=4, nb_epochs=10, *args, **kwargs):
@@ -112,11 +112,12 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 
         loss_eph = 0
 
-        # for data_point, label in zip(*dataset):
-        for batch in dataset.iter(batch_size=2):
-            x, y = batch["image"], batch["label"]
+        dataset = project_dataset_onto_basis(dataset, basis)
+        for x, y in zip(*dataset):
 
-            x = x.reshape((x.shape[0], -1)) @ basis
+        # for batch in dataset.iter(batch_size=2):      ## TODO! the following 3 lines if vmap is used
+        #     x, y = batch["image"], batch["label"]
+            # x = x.reshape((x.shape[0], -1)) @ basis
 
             # print("Data point:", data_point.shape, "val", data_point, "Label:", label.shape)
 
@@ -140,7 +141,7 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 
 
 
-@partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
+# @partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
 @partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser"))
 def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate):
     loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
