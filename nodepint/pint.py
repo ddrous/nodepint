@@ -64,7 +64,7 @@ def select_root_finding_function(pint_scheme:str):
 #     return mtp_shooting_func
 
 
-@partial(jax.jit, static_argnums=(2, 3, 4, 5))
+# @partial(jax.jit, static_argnums=(2, 3, 4, 5))
 def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
     ## Split times among N = nb_processors
 
@@ -77,7 +77,7 @@ def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
     Z_ = [z0]
     nz = z0.shape[0]
 
-    print("Check every argument's type:", type(Z), type(z0), type(times), type(rhs), type(integrator))
+    # print("Check every argument's type:", type(Z), type(z0), type(times), type(rhs), type(integrator))
 
     for n in range(nb_splits):      ## TODO do this in parallel   
         ts = split_times[n]
@@ -89,7 +89,11 @@ def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
 
         # z_next = integrator(rhs, Z[n], t=ts)[-1,...]
         # print("Types of all arguments: ", type(rhs), type(Z), type(ts), type(z0))
-        print("SHapes of every element:", Z.shape, z0.shape, len(ts))
+        # print("SHapes of every element:", Z.shape, z0.shape, len(ts))
+
+        # print("Currently processor number:", n)
+        # print("Current size of Z:", Z.shape)
+
         z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=ts)[-1,...]
         Z_.append(z_next)
 
@@ -103,10 +107,15 @@ def shooting_function(Z, z0, nb_splits, times, rhs, integrator):
 # - custom JVP rule https://jax.readthedocs.io/en/latest/notebooks/Custom_derivative_rules_for_Python_code.html
 # - example of fixed-point interation in PyTorch http://implicit-layers-tutorial.org/deep_equilibrium_models/
 @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
-def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate=1., tol=1e-6, maxiter=10):
+def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate, tol, maxiter):
+# learning_rate=1., tol=1e-6, maxiter=3):
     grad = jax.jacfwd(func)
 
     B = B0
+
+    ## Check if times contains numpy arrays and convert to floats
+    if isinstance(times[0], np.float64):
+        times = tuple(map(lambda x: float(x), times))
 
     # shape = B.shape
     # Nnz = shape[0]*shape[1]
@@ -117,18 +126,21 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning
     # times = jnp.array(times)[:, jnp.newaxis]
     # func(B, z0, nb_splits, times, rhs, integrator)
 
-    for _ in range(maxiter):
+    for k in range(maxiter):
         # grad_inv = jnp.linalg.inv(grad(B, z0).reshape((Nnz, Nnz)))
         # func_eval = func(B, z0).reshape((Nnz, 1))
 
-        print("Types of all arguments: ", type(rhs), type(B), type(z0), type(times), type(times[0]), type(integrator))
+        # print("Types of all arguments: ", type(rhs), type(B), type(z0), type(times), type(times[0]), type(integrator))
 
+        print("PinT iteration counter: ", k)
         grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
         func_eval = func(B, z0, nb_splits, times, rhs, integrator)
 
         B_new = B - learning_rate * grad_inv @ func_eval
-        if jnp.linalg.norm(B_new - B) < tol:
-            break
+        # B_new = B - learning_rate * func_eval
+
+        # if jnp.linalg.norm(B_new - B) < tol:
+        #     break
         B = B_new
 
     # print("Shape of the returned B is: ", B.shape)

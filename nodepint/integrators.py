@@ -55,7 +55,8 @@ def euler_integrator(func, y0, t, hmax=1e-2):
     # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     # nb_iter = ((t[-1] - t[0]) / dt).astype(int)
 
-    print("Types:", type(t), t, type(t[0]))
+    # print("Types:", type(t), t, type(t[0]))
+    # print("I was called with shape:", y0.shape)
 
     t = np.array(t)
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
@@ -69,7 +70,7 @@ def euler_integrator(func, y0, t, hmax=1e-2):
         yt = yt.at[i, 1:].set(newy)
         return yt
 
-    print("Nb iter", nb_iter, y0.shape)
+    # print("Nb iter", nb_iter, y0.shape)
     yt = jnp.zeros((nb_iter, y0.shape[0]+1))
     yt = yt.at[0, 0].set(t[0])
     yt = yt.at[0, 1:].set(y0)

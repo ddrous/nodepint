@@ -7,6 +7,7 @@ import functools as ft
 import gzip
 import os
 import struct
+import time
 import urllib.request
 
 import diffrax as dfx  # https://github.com/patrick-kidger/diffrax
@@ -254,37 +255,50 @@ model = Mixer2d(
     t1,
     key=model_key,
 )
+
+
+## Load the MLP-Mixer model
+model = eqx.tree_deserialise_leaves("data/mlp_mixer_mnist.eqx", model)
+
+
 int_beta = lambda t: t  # TODO Try experimenting with other options here!
 weight = lambda t: 1 - jnp.exp(
     -int_beta(t)
 )  # Just chosen to upweight the region near t=0.
 
-opt = optax.adabelief(lr)
-# Optax will update the floating-point JAX arrays in the model.
-opt_state = opt.init(eqx.filter(model, eqx.is_inexact_array))
 
-total_value = 0
-total_size = 0
-for step, data in zip(range(num_steps), dataloader(data, batch_size, key=loader_key)):  ## TODO! This is all just ONE epoch !
+# ## =====Traning setup begins here=====
 
-    value, model, train_key, opt_state = make_step(
-        model, weight, int_beta, data, t1, train_key, opt_state, opt.update
-    )
+# opt = optax.adabelief(lr)
+# # Optax will update the floating-point JAX arrays in the model.
+# opt_state = opt.init(eqx.filter(model, eqx.is_inexact_array))
 
-    total_value += value.item()
-    total_size += 1
-    if (step % print_every) == 0 or step == num_steps - 1:
-        print(f"Step={step} Loss={total_value / total_size}")
-        total_value = 0
-        total_size = 0
+# total_value = 0
+# total_size = 0
+# for step, data in zip(range(num_steps), dataloader(data, batch_size, key=loader_key)):  ## TODO! This is all just ONE epoch !
+
+#     value, model, train_key, opt_state = make_step(
+#         model, weight, int_beta, data, t1, train_key, opt_state, opt.update
+#     )
+
+#     total_value += value.item()
+#     total_size += 1
+#     if (step % print_every) == 0 or step == num_steps - 1:
+#         print(f"Step={step} Loss={total_value / total_size}")
+#         total_value = 0
+#         total_size = 0
+
+# ## =====Traning setup ends here=====
 
 
 
 #%%
 
-sample_key = jr.split(sample_key, sample_size**2)       ## TODO! this is actually squared
+sample_key = jr.PRNGKey(time.time_ns())
+
+batch_sample_key = jr.split(sample_key, sample_size**2)       ## TODO! this is actually squared
 sample_fn = ft.partial(single_sample_fn, model, int_beta, data_shape, dt0, t1)
-sample = jax.vmap(sample_fn)(sample_key)
+sample = jax.vmap(sample_fn)(batch_sample_key)
 sample = data_mean + data_std * sample
 sample = jnp.clip(sample, data_min, data_max)
 sample = einops.rearrange(
@@ -304,4 +318,3 @@ plt.show()
 
 ## Save the MLP-Mixer model
 # eqx.tree_serialise_leaves("data/mlp_mixer_mnist.eqx", model)
-

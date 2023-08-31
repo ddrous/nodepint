@@ -68,7 +68,7 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         data_feature = "image"
         vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
         ## Sample a vector
-        basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=1, key=None)
+        basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=2, key=None)
 
         print("\nBasis constructed, with shape:", basis.shape)
 
@@ -112,12 +112,12 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 
         loss_eph = 0
 
-        dataset = project_dataset_onto_basis(dataset, basis)
-        for x, y in zip(*dataset):
+        # dataset = project_dataset_onto_basis(dataset, basis)
+        # for x, y in zip(*dataset):
 
-        # for batch in dataset.iter(batch_size=2):      ## TODO! the following 3 lines if vmap is used
-        #     x, y = batch["image"], batch["label"]
-            # x = x.reshape((x.shape[0], -1)) @ basis
+        for batch in dataset.iter(batch_size=500):      ## TODO! the following 3 lines if vmap is used
+            x, y = batch["image"], batch["label"]
+            x = x.reshape((x.shape[0], -1)) @ basis
 
             # print("Data point:", data_point.shape, "val", data_point, "Label:", label.shape)
 
@@ -128,7 +128,16 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 
             # loss_eph += loss_val
 
+            # print("Shapes just before training step:", x.shape, y.shape)
+
+            # p_leaves = jax.tree_util.tree_leaves(params)
+            # o_leaves = jax.tree_util.tree_leaves(optstate)
+            # print(f"params has {len(p_leaves)} with shape {p_leaves[0].shape}")
+            # print(f"opstate has {len(o_leaves)} with shape {o_leaves[0].shape}")
+
             params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate)
+
+            # print('Loss val', loss_val)
 
             loss_eph += jnp.sum(loss_val)
 
@@ -144,7 +153,16 @@ def neuralnet_update(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_pr
 # @partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
 @partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser"))
 def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate):
+
+
     loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+
+    # batched_loss_fn = jax.vmap(jax.value_and_grad(node_loss), in_axes=(None, None, 0, 0, None, None, None, None, None, None), out_axes=0)
+
+    # loss_val, grad = batched_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+
+    # g_leaves = jax.tree_util.tree_leaves(grad)
+    # print(f"GRRRRAD grads has {len(g_leaves)} with shape {g_leaves[0].shape}")
 
     updates, optstate = optimiser.update(grad, optstate, params)
     params = optax.apply_updates(params, updates)
@@ -152,24 +170,34 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
     return params, optstate, loss_val
 
 
-
 ## A loss that only works for neural ODEs
+# @partial(jax.vmap, in_axes=(None, None, 0, 0, None, None, None, None, None, None), out_axes=0)
 def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator):
     neural_net = combine_dynamic_net(params, static)
 
-    sht_init = jnp.ones((nb_processors+1, x.shape[0])).flatten()  ## TODO think of better HOT initialisation
+    sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation
 
     # print("x shape:", x.shape, "an element", x[0], "res", pint_scheme(shooting_fn, z0=x, B0=sht_init).shape)
 
-    final_feature = pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator)[-x.shape[0]:]
+    # final_feature = pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator)[-x.shape[0]:]
 
-    # print("Final feature shape:", final_feature.shape, "an element", final_feature[0])
+    # y_pred = neural_net.predict(final_feature)
 
-    y_pred = neural_net.predict(final_feature)
+
+    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
+    batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
+
+    # final_feature = batched_pint_scheme(shooting_fn, B0=sht_init, z0=x, nb_splits=nb_processors, times=times, rhs=neural_net, integrator=integrator, learning_rate=1., tol=1e-6, maxiter=3)[:, -x.shape[1]:]
+
+    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
+
+    y_pred = batched_model_pred(final_feature)
+
 
     # print("y_pred shape:", y_pred.shape, "y shape:", y.shape, "feauture", final_feature.shape)
-    return loss_fn(y_pred, y)
+    # return loss_fn(y_pred, y)
 
+    return jnp.mean(jax.vmap(loss_fn, in_axes=(0, 0))(y_pred, y))
 
 
 ## Other considerations

@@ -1,5 +1,6 @@
 
 #%%
+import time
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -7,10 +8,14 @@ import equinox as eqx
 import optax
 import matplotlib.pyplot as plt
 
-from nodepint.utils import get_key, sbplot
+from nodepint.utils import get_key, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode
 from nodepint.data import load_jax_dataset, convert_to_one_hot_encoding, normalise_feature
 from nodepint.integrators import dopri_integrator, euler_integrator
+
+## Use jax cpu
+jax.config.update("jax_platform_name", "cpu")
+
 
 class MLP(eqx.Module):
     """
@@ -33,6 +38,7 @@ class MLP(eqx.Module):
 
     def __call__(self, x):
         for layer in self.layers:
+            # print("Shape before internal layer", x.shape)
             x = layer(x)
         return x
 
@@ -66,8 +72,11 @@ times = tuple(np.linspace(0, 1, 101).flatten())
 
 ## Define the neural ODE
 neuralnet = MLP()
+# neuralnet = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=get_key(None))
 
 ## Train the neural ODE
+start_time = time.time()
+
 dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
                                     ds,
                                     pint_scheme="newton",
@@ -81,7 +90,10 @@ dynamicnet, basis, loss_hts = train_parallel_neural_ode(neuralnet,
                                     shooting_learning_rate=1e-3, 
                                     scheduler=optax.constant_schedule(1e-3),
                                     times=times,
-                                    nb_epochs=100)
+                                    nb_epochs=5)
+wall_time = time.time() - start_time
+time_in_secs = seconds_to_hours(wall_time)
+print("Total training time: {} hours {} mins {} secs".format(time_in_secs))
 
 
 #%%

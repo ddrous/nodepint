@@ -2,6 +2,12 @@
 import time
 import jax
 
+def seconds_to_hours(seconds):
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return hours, minutes, seconds
+
 ## Simply returns a suitable key for all jax operations
 def get_key(key=None):
     if key is None:

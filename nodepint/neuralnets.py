@@ -70,25 +70,30 @@ class DynamicNet(eqx.Module):
         # print("Values and shapes of t and x:", t.shape, x.shape)
 
         tx = jnp.concatenate([t, x], axis=-1)
-        # tx = jnp.concatenate([jnp.array([t]), x], axis=-1)
+        # print("Shape of now tx:", tx.shape)
 
-        print("tx shape", tx.shape, t.shape, x.shape)
-
-        # print("tx size", tx.shape, self.dyn_input_size)
-        # print("dyn input layer", self.dyn_input_layer)
         y = self.dyn_input_layer(tx)
+
+        # print("Shape of now y:", y.shape)
+
         y = self.sta_hidden_layers(y)
         y = self.dyn_output_layer(y)
-        # print("Output layer:", self.dyn_output_layer)
-        # print("y output shape", y.shape)
-        # print("dyn output layer", self.dyn_output_layer)
+
+
+        # t = jnp.full_like(x, t)
+        # print("t shape:", t.shape, "x shape:", x.shape)
+        # tx = jnp.concatenate([t, x], axis=-1)
+        # print("tx shape:", tx.shape)
+
+        # y = jax.vmap(self.dyn_input_layer)(tx)
+        # y = jax.vmap(self.sta_hidden_layers)(y)
+        # y = jax.vmap(self.dyn_output_layer)(y)
+
         return y
 
     def predict(self, x):
-        ## Check shapes
-        # print("X before prediction shape", x.shape)
-        # print("dyn prediction layer", self.dyn_prediction_layer)
         return self.dyn_prediction_layer(x)
+        # return jax.vmap(self.dyn_prediction_layer)(x)
 
 
 def glorot_uniform(shape, key):
