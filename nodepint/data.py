@@ -3,7 +3,6 @@
 ## Datasets for nodepint based on HuggingFace's datasets library
 
 import jax
-import jax.numpy as jnp
 from typing import Collection
 from datasets import Dataset, load_dataset
 
@@ -27,8 +26,12 @@ def get_dataset_features(ds: Dataset) -> Collection[str]:
     :param ds: Dataset: Specify the type of the parameter
     :return: A collection of strings
     """
-    return ds.features.keys()
+    # return tuple(ds.features.keys())
+    return ds.column_names
 
+
+def reorder_dataset_features(ds: Dataset, features: Collection[str]) -> Dataset:
+    return ds.select_columns(features)
 
 def extract_all_data(ds:Dataset, features: Collection[str] = None) -> Collection[jax.numpy.ndarray]:
     """
@@ -40,23 +43,21 @@ def extract_all_data(ds:Dataset, features: Collection[str] = None) -> Collection
     """
     if features is None:
         features = get_dataset_features(ds)
-    return tuple([ds[:10][feature] for feature in features])        ## TODO! do this in batches !
+    return tuple([ds[:][feature] for feature in features])
 
-def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
-    """
-    This takes a dataset and projects it onto a basis. TODO do this piece by pieve, and not all at once.
+# def project_dataset_onto_basis(ds:Dataset, basis:jax.numpy.ndarray) -> Dataset:
+#     """
+#     This takes a dataset and projects it onto a basis. TODO do this piece by pieve, and not all at once.
     
-    :param ds:Dataset: Specify the dataset that is being used
-    :param basis:jax.numpy.ndarray: Specify the basis that is being used
-    :return: A dataset
-    """
+#     :param ds:Dataset: Specify the dataset that is being used
+#     :param basis:jax.numpy.ndarray: Specify the basis that is being used
+#     :return: A dataset
+#     """
 
-    all_data, labels = extract_all_data(ds, features=["image", "label"])
-    flat_data = jnp.reshape(all_data, (all_data.shape[0], -1))
+#     all_data, labels = extract_all_data(ds, features=["image", "label"])
+#     flat_data = jnp.reshape(all_data, (all_data.shape[0], -1))
 
-    # print("Shapes of flatdata and basis:", flat_data.shape, basis.shape)
-
-    return flat_data @ basis, labels
+#     return flat_data @ basis, labels
 
 
 def convert_to_one_hot_encoding(ds:Dataset, feature:str="label") -> Dataset:

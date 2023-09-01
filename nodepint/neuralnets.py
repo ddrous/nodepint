@@ -8,8 +8,7 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 
-from .utils import get_key
-# from utils import get_key
+from .utils import get_new_keys
 
 class DynamicNet(eqx.Module):
     """
@@ -33,8 +32,7 @@ class DynamicNet(eqx.Module):
 
         # hidden_features = 100 ## TODO get this parameter from the neural_net
 
-        key = get_key(key)
-        keys = jax.random.split(key, num=3)
+        keys = get_new_keys(key, num=3)
 
         self.dyn_input_size = input_size
         self.dyn_output_size = output_size
@@ -45,9 +43,6 @@ class DynamicNet(eqx.Module):
         else:
             self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=model_key)
 
-        ## Print all attributes of the neural net
-        # print("Hidden net attributes are: ", self.sta_hidden_layers.__dict__.keys())
-
         ## TODO what follows is highly brittle (only works for MLPs)
         in_hidden_features = self.sta_hidden_layers.layers[0].in_features
         out_hidden_features = self.sta_hidden_layers.layers[-1].out_features
@@ -57,43 +52,24 @@ class DynamicNet(eqx.Module):
         self.dyn_output_layer = eqx.nn.Linear(out_hidden_features, output_size, key=keys[1])
 
         # if hasattr(neural_net, "prediction_layer"):     ## TODO make sure the user never sets a prediction layer
-        #     self.dyn_prediction_layer = neural_net.prediction_layer
-        # else:
-        # print("output and pred size:", output_size, pred_size)
-        # pred_in_size = output_size if output_size>0 else 1
-        # lim = 1/(pred_in_size+1)
+
         self.dyn_prediction_layer = eqx.nn.Linear(output_size+1, pred_size, key=keys[2])
         glorot_weights = glorot_uniform(shape=(pred_size, output_size), key=keys[2])
         self.dyn_prediction_layer = eqx.tree_at(lambda l: l.weight, self.dyn_prediction_layer, glorot_weights)
 
+
     def __call__(self, x, t):
-        # print("Values and shapes of t and x:", t.shape, x.shape)
 
         tx = jnp.concatenate([t, x], axis=-1)
-        # print("Shape of now tx:", tx.shape)
 
         y = self.dyn_input_layer(tx)
-
-        # print("Shape of now y:", y.shape)
-
         y = self.sta_hidden_layers(y)
         y = self.dyn_output_layer(y)
-
-
-        # t = jnp.full_like(x, t)
-        # print("t shape:", t.shape, "x shape:", x.shape)
-        # tx = jnp.concatenate([t, x], axis=-1)
-        # print("tx shape:", tx.shape)
-
-        # y = jax.vmap(self.dyn_input_layer)(tx)
-        # y = jax.vmap(self.sta_hidden_layers)(y)
-        # y = jax.vmap(self.dyn_output_layer)(y)
 
         return y
 
     def predict(self, x):
         return self.dyn_prediction_layer(x)
-        # return jax.vmap(self.dyn_prediction_layer)(x)
 
 
 def glorot_uniform(shape, key):
@@ -123,11 +99,10 @@ def add_neurons_to_input_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
     - Recreate a new input layer, and copy the old weights that match into their respective positions
     - Reset the properties of the neural net (input size, etc.)
     """
-    key = get_key(key)
+    key = get_new_keys(key)
 
     old_output_size, old_input_size = neural_net.dyn_input_layer.weight.shape
 
-    # new_layer_weight = jax.random.normal(key, shape=(old_output_size, nb_neurons+old_input_size))
     new_layer_weight = glorot_uniform(shape=(old_output_size, nb_neurons+old_input_size), key=key)
     new_layer_weight = new_layer_weight.at[:, :old_input_size].set(neural_net.dyn_input_layer.weight)
 
@@ -136,22 +111,17 @@ def add_neurons_to_input_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
 
 
 
-
-
 def add_neurons_to_output_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
-
-    key = get_key(key)
+    key = get_new_keys(key)
 
     old_output_size, old_input_size = neural_net.dyn_output_layer.weight.shape
 
-    # new_layer_weight = jax.random.normal(key, shape=(old_output_size+nb_neurons, old_input_size))
     new_layer_weight = glorot_uniform(shape=(old_output_size+nb_neurons, old_input_size), key=key)
     new_layer_weight = new_layer_weight.at[:old_output_size, :].set(neural_net.dyn_output_layer.weight)
 
     where = lambda nn: nn.dyn_output_layer.weight
     neural_net = eqx.tree_at(where, neural_net, new_layer_weight)
 
-    # new_layer_bias = jax.random.normal(key, shape=(old_output_size+nb_neurons,))
     new_layer_bias = glorot_uniform(shape=(old_output_size+nb_neurons, ), key=key)
     new_layer_bias = new_layer_bias.at[:old_output_size].set(neural_net.dyn_output_layer.bias)
 
@@ -167,19 +137,11 @@ def combine_dynamic_net(params, static):
     return eqx.combine(params, static)
 
 def add_neurons_to_prediction_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
-    key = get_key(key)
+    key = get_new_keys(key)
 
     old_output_size, old_input_size = neural_net.dyn_prediction_layer.weight.shape
 
-    # old_input_size = neural_net.dyn_prediction_layer.in_features
-    ## old_input_size = 0 if old_input_size=="scalar" else old_input_size
-    # old_output_size = neural_net.dyn_prediction_layer.out_features
-
-    # new_layer_weight = jax.random.normal(key, shape=(old_output_size, old_input_size+nb_neurons))
     new_layer_weight = glorot_uniform(shape=(old_output_size, old_input_size+nb_neurons), key=key)
-    ## Print stuff before assign
-    # print("Dyn layer", neural_net.dyn_prediction_layer.weight.shape, "new layer", new_layer_weight.shape)
-    # print("old input size", old_input_size, "new input size", old_input_size+nb_neurons)
 
     new_layer_weight = new_layer_weight.at[:, :old_input_size].set(neural_net.dyn_prediction_layer.weight)
 

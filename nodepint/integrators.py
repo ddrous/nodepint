@@ -4,7 +4,6 @@
 import jax
 import jax.numpy as jnp
 from jax.experimental.ode import odeint
-from functools import partial
 
 import numpy as np
 
@@ -17,46 +16,20 @@ import numpy as np
 
 
 
-## The default Jax differentiable integrator (TODO Jit this)
+## The default Jax differentiable integrator
 # dopri_integrator = jax.jit(odeint, static_argnums=(0))
 dopri_integrator = odeint
 # def dopri_integrator(func, t, y0):      ## Inverts the order of t and y0 passed to func
 #     return odeint(func, y0, t, rtol=1e-3, atol=1e-3, mxstep=1000, hmax=1e-5)
 
-## Simple Euler integrator (TODO Use ForI or LaxScan to make it faster)
-# @partial(jax.jit, static_argnums=(0))
+## Simple Euler integrator
 def euler_step(func, y, t, dt):
-    # print("Just print y shape for the sake of it", y.shape)
-    # print("SHapes of every element:", y.shape, t.shape, dt.shape, func(y, t).shape)
-
     ret = y+func(y, t)*dt, t + dt
-    # print("Just print ret shape", ret[0].shape)
     return ret
-
-# def euler_integrator(func, y0, t, hmax=1e-2):
-
-#     ys = []
-#     y = y0
-#     curr_t = t[0]
-#     dt = min((hmax, jnp.min(t[1:] - t[:-1])))
-#     # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:]) * hmax, t[1:] - t[:-1]))
-
-#     while curr_t < t[-1]:
-
-#         y, curr_t = euler_step(func, y, curr_t, dt)
-#         ys.append(y)
-
-#     return jnp.stack(ys, axis=0)
 
 
 # @partial(jax.jit, static_argnums=(0, 2, 3))
 def euler_integrator(func, y0, t, hmax=1e-2):
-
-    # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
-    # nb_iter = ((t[-1] - t[0]) / dt).astype(int)
-
-    # print("Types:", type(t), t, type(t[0]))
-    # print("I was called with shape:", y0.shape)
 
     t = np.array(t)
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
@@ -64,13 +37,10 @@ def euler_integrator(func, y0, t, hmax=1e-2):
 
     def body_func(i, yt):       ## TODO this is sooo not functional
         newy, newt = euler_step(func, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
-        # print("newy", newy.shape, "newt", newt.shape, "yt", yt.shape)
-        # print("newy", newy, "newt", newt, "yt", yt)
         yt = yt.at[i, 0].set(newt[0])
         yt = yt.at[i, 1:].set(newy)
         return yt
 
-    # print("Nb iter", nb_iter, y0.shape)
     yt = jnp.zeros((nb_iter, y0.shape[0]+1))
     yt = yt.at[0, 0].set(t[0])
     yt = yt.at[0, 1:].set(y0)
@@ -81,11 +51,12 @@ def euler_integrator(func, y0, t, hmax=1e-2):
 
 
 
-## RBF integrator (TODO from Updec)
+## RBF integrator (TODO Implement this from Updec)
 
 
 
 # %%
+
 ## %%timeit -n1 -r1 TODO Careful to only use this when running the script in iPython
 
 if __name__ == "__main__":

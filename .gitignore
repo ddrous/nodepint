@@ -13,3 +13,7 @@ quadqs_statistics.json
 
 nodepint.egg-info/*
 nodepint/__pycache__/*
+
+# For tensorboard logs
+*v2
+*ubyte.gz
