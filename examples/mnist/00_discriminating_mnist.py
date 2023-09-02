@@ -113,9 +113,9 @@ train_params = {"neural_net":neuralnet,
                 "scheduler":1e-3,
                 "times":times,
                 "nb_epochs":50,
-                "batch_size":8,
-                "repeat_projection":3,
-                "nb_vectors":20,
+                "batch_size":16,
+                "repeat_projection":2,
+                "nb_vectors":40,
                 "key":key}
 
 
