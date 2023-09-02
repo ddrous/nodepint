@@ -36,7 +36,8 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     if not isinstance(times, tuple):
         times = tuple(times.flatten())
 
-    proj_scheme = select_projection_scheme(proj_scheme)
+    if isinstance(proj_scheme, str):
+        proj_scheme = select_projection_scheme(proj_scheme)
     print("Projection function name: ", proj_scheme.__name__)
 
     ## TODO use many projections per-data points
@@ -61,7 +62,7 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     basis = None    ## Initialise the basis
     loss_hts = []    ## Initialise the loss history
 
-    for b in range(repeat_projection):
+    for p in range(repeat_projection):
 
         vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
 
@@ -190,7 +191,7 @@ def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_proce
     return total_acc/nb_batches
 
 
-@partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator"))
+@partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator"))
 def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator):
 
     neural_net = combine_dynamic_net(params, static)

@@ -13,10 +13,10 @@ from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
-from nodepint.data import load_jax_dataset, convert_to_one_hot_encoding, normalise_feature, get_dataset_features, reorder_dataset_features
+from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator
 from nodepint.pint import newton_root_finder
-
+from nodepint.projection import random_sampling, identity_sampling
 
 ## Use jax cpu
 # jax.config.update("jax_platform_name", "cpu")
@@ -25,33 +25,7 @@ SEED = 27
 
 
 #%% [markdown]
-# ## Load the dataset
-
-#%%
-
-ds = load_jax_dataset(path="mnist", split="train")
-ds = convert_to_one_hot_encoding(ds, feature="label")
-ds = normalise_feature(ds, feature="image", factor=255.)
-
-np.random.seed(SEED)
-ds = ds.select(np.random.randint(0, 60000, 16))
-print("features", get_dataset_features(ds))
-
-## Warning. Always make sure your datapoints are first, and labels second
-ds = reorder_dataset_features(ds, ["image", "label"])
-print("features", get_dataset_features(ds))
-
-## Visualise a datapoint
-pixels = ds[0]["image"]
-label = ds[0]["label"]
-
-plt.title('Label is {label}'.format(label=label.argmax()))
-plt.imshow(pixels, cmap='gray')
-plt.show()
-
-
-#%% [markdown]
-# ## Define neural net and other elements
+# ## Define neural net
 
 #%%
 
@@ -68,7 +42,7 @@ class MLP(eqx.Module):
         key = get_new_keys(key)
 
         self.layers = [eqx.nn.Linear(100, 100, key=key)]
-        for i in range(2):
+        for i in range(3):
             self.layers = self.layers + [jax.nn.relu, eqx.nn.Linear(100, 100, key=key)]
         # self.prediction_layer = eqx.nn.Linear(100, 10, key=key)
 
@@ -77,6 +51,32 @@ class MLP(eqx.Module):
             x = layer(x)
         return x
 
+
+
+#%% [markdown]
+# ## Load the dataset
+
+#%%
+
+ds = load_jax_dataset(path="mnist", split="train")
+ds = preprocess_mnist(ds, subset_size=2560, seed=SEED, norm_factor=255.)
+
+print("features", get_dataset_features(ds))
+
+## Visualise a datapoint
+pixels = ds[0]["image"]
+label = ds[0]["label"]
+
+plt.title('Label is {label}'.format(label=label.argmax()))
+plt.imshow(pixels, cmap='gray')
+plt.show()
+
+
+
+#%% [markdown]
+# ## Define training parameters
+
+#%%
 
 ## Optax crossentropy loss
 optim_scheme = optax.adam
@@ -100,18 +100,11 @@ newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter
 
 key = get_new_keys(SEED)
 
-
-#%% [markdown]
-# ## Train the model
-
-#%% 
-
-
 train_params = {"neural_net":neuralnet,
                 "data":ds,
                 "pint_scheme":newton_scheme,
-                # "pint_scheme":"newton",
-                "proj_scheme":"random",
+                "proj_scheme":random_sampling,
+                # "proj_scheme":identity_sampling,
                 "integrator":euler_integrator, 
                 # "integrator":dopri_integrator, 
                 "loss_fn":loss, 
@@ -119,11 +112,17 @@ train_params = {"neural_net":neuralnet,
                 "nb_processors":4, 
                 "scheduler":1e-3,
                 "times":times,
-                "nb_epochs":1,
+                "nb_epochs":50,
                 "batch_size":8,
-                "repeat_projection":1,
-                "nb_vectors":2,
+                "repeat_projection":3,
+                "nb_vectors":20,
                 "key":key}
+
+
+#%% [markdown]
+# ## Train the model
+
+#%% 
 
 
 start_time = time.time()
@@ -133,8 +132,9 @@ dynamicnet, basis, shooting_fn, loss_hts = train_parallel_neural_ode(**train_par
 
 clock_time = time.process_time() - cpu_start_time
 wall_time = time.time() - start_time
-time_in_secs = seconds_to_hours(wall_time)
-print("\nTotal training time: %d hours %d mins %d secs" %time_in_secs)
+
+time_in_hmsecs = seconds_to_hours(wall_time)
+print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 
 
 
@@ -158,7 +158,6 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", title="Total loss histor
 
 
 
-
 #%% [markdown]
 # ## Compute metrics on a test dataset
 
@@ -166,21 +165,14 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", title="Total loss histor
 
 ## Load the test dataset
 test_ds = load_jax_dataset(path="mnist", split="test")
-test_ds = convert_to_one_hot_encoding(test_ds, feature="label")
-test_ds = normalise_feature(test_ds, feature="image", factor=255.)
-
-np.random.seed(SEED)
-test_ds = test_ds.select(np.random.randint(0, 1000, 16))
-
-test_ds = reorder_dataset_features(test_ds, ["image", "label"])
-print("features", get_dataset_features(ds))
+test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
 
 
 def accuracy_fn(y_pred, y):
     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
     y = jnp.argmax(y, axis=-1)
 
-    return jnp.mean(y_pred == y, axis=-1)
+    return jnp.mean(y_pred == y, axis=-1)*100
 
 test_params = {"neural_net":dynamicnet,
                 "data":test_ds,
@@ -193,16 +185,16 @@ test_params = {"neural_net":dynamicnet,
                 "times":times,
                 "batch_size":8}
 
+
 start_time = time.time()
 
 avg_acc = test_dynamic_net(**test_params)
 
 test_wall_time = time.time() - start_time
-time_in_secs = seconds_to_hours(wall_time)
-print("\n Average accuracy:", avg_acc, "%      Test time: %d hours %d mins %d secs" %time_in_secs)
+time_in_hms= seconds_to_hours(test_wall_time)
 
-
-
+print(f"\nAverage accuracy: {avg_acc:.2f} %")
+print("Test time: %d hours %d mins %d secs" %time_in_hms)
 
 #%% [markdown]
 # ## Write stuff to tensorboard
@@ -223,7 +215,7 @@ hps["nb_vectors"] = train_params["nb_vectors"]
 
 hps["times"] = (train_params["times"][0], train_params["times"][-1], len(train_params["times"]))
 hps["optim_scheme"] = train_params["optim_scheme"].__name__
-hps["pint_scheme"] = str(train_params["pint_scheme"])[41:-18]
+hps["pint_scheme"] = str(train_params["pint_scheme"])[45:-63]
 hps["key"] = SEED
 hps["integrator"] = train_params["integrator"].__name__
 hps["loss_fn"] = train_params["loss_fn"].__name__
@@ -232,6 +224,8 @@ hps["dynamicnet_size"] = sum(x.size for x in jax.tree_util.tree_leaves(eqx.parti
 
 hps["wall_time"] = wall_time
 hps["clock_time"] = clock_time
+
+hps["test_acc"] = avg_acc
 hps["test_wall_time"] = test_wall_time
 
 writer.hparams(hps)

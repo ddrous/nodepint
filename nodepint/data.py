@@ -3,6 +3,7 @@
 ## Datasets for nodepint based on HuggingFace's datasets library
 
 import jax
+import numpy as np
 from typing import Collection
 from datasets import Dataset, load_dataset
 
@@ -91,6 +92,25 @@ def normalise_feature(ds:Dataset, feature:str="image", factor:float=255.) -> Dat
 
     return ds
 
+
+def preprocess_mnist(ds, subset_size="all", seed=None, norm_factor=255., feature_order=["image", "label"]):
+
+    ds = convert_to_one_hot_encoding(ds, feature="label")
+    ds = normalise_feature(ds, feature="image", factor=norm_factor)
+
+    if subset_size != "all":
+        if seed is None:
+            seed = time.time_ns()
+            print("WARNING: no seed provided. Using time.time_ns()")
+        if subset_size > ds.num_rows:
+            subset_size = ds.num_rows
+            print("WARNING: subset_size bigger than dataset. Using all datapoints")
+        np.random.seed(seed)
+        ds = ds.select(np.random.randint(0, ds.num_rows, subset_size))
+
+    ## Warning. Always make sure your datapoints are first, and labels second
+    ds = reorder_dataset_features(ds, feature_order)
+    return ds
 
 
 if __name__ == "__main__":

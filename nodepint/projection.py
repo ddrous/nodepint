@@ -12,6 +12,7 @@
 
 
 import jax
+import jax.numpy as jnp
 
 from .utils import get_new_keys
 
@@ -34,6 +35,12 @@ def random_sampling(old_basis:jax.Array=None, orig_vec_size:int=None, nb_new_vec
     return ret
 
 
+def identity_sampling(old_basis:jax.Array=None, orig_vec_size:int=None, nb_new_vecs:int=1, key:jax.random.PRNGKey=None):
+
+    return jnp.diag(jnp.ones(orig_vec_size)), orig_vec_size
+
+
+
 def radermacher_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     """Should produce uniformly distributed sine vectors"""
     pass
@@ -45,6 +52,8 @@ def learned_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
 def select_projection_scheme(name:str="random"):
     if name=="random":
         scheme = random_sampling
+    elif name=="identity":
+        scheme = identity_sampling
     elif name=="learned":
         scheme = learned_sampling
     else:
