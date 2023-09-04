@@ -54,7 +54,7 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning
 
     B = B0
 
-    for k in range(max_iter):
+    for k in range(max_iter):       ## MAX_ITER is N (see Massaroli)
 
         ## This also tells us whether we are recompiling
         print("PinT iteration counter: ", k)
@@ -72,25 +72,30 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning
     return B
 
 
-
+# @jax.custom_vjp
 @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
-def direct_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate=1., tol=1e-6, maxiter=10):
+def direct_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate, tol, max_iter):       ## See Massaroli
     grad = jax.jacfwd(func)
 
     B = B0
 
-    for _ in range(maxiter):
+    for k in range(max_iter):
         ## Solve a linear system
+
+        print("PinT iteration counter: ", k)
+
         grad_eval = grad(B, z0, nb_splits, times, rhs, integrator)
         func_eval = func(B, z0, nb_splits, times, rhs, integrator)
 
         B_new = B + jnp.linalg.solve(grad_eval, -func_eval)
 
-        if jnp.linalg.norm(B_new - B) < tol:
-            break
+        # if jnp.linalg.norm(B_new - B) < tol:
+        #     break
+
         B = B_new
 
     return B
+
 
 
 

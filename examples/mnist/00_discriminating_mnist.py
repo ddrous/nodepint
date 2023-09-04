@@ -15,7 +15,7 @@ from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator
-from nodepint.pint import newton_root_finder
+from nodepint.pint import newton_root_finder, direct_root_finder
 from nodepint.projection import random_sampling, identity_sampling
 
 ## Use jax cpu
@@ -42,7 +42,7 @@ class MLP(eqx.Module):
         key = get_new_keys(key)
 
         self.layers = [eqx.nn.Linear(100, 100, key=key)]
-        for i in range(3):
+        for i in range(1):
             self.layers = self.layers + [jax.nn.relu, eqx.nn.Linear(100, 100, key=key)]
         # self.prediction_layer = eqx.nn.Linear(100, 10, key=key)
 
@@ -59,7 +59,7 @@ class MLP(eqx.Module):
 #%%
 
 ds = load_jax_dataset(path="mnist", split="train")
-ds = preprocess_mnist(ds, subset_size=2560, seed=SEED, norm_factor=255.)
+ds = preprocess_mnist(ds, subset_size=32, seed=SEED, norm_factor=255.)
 
 print("features", get_dataset_features(ds))
 
@@ -96,13 +96,14 @@ neuralnet = MLP(key=SEED)
 # neuralnet = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=get_key(None))
 
 ## PinT scheme with only mandatory arguments
-newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
+# newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
+direct_scheme = partial(direct_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
 
 key = get_new_keys(SEED)
 
 train_params = {"neural_net":neuralnet,
                 "data":ds,
-                "pint_scheme":newton_scheme,
+                "pint_scheme":direct_scheme,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
                 "integrator":euler_integrator, 
@@ -112,10 +113,10 @@ train_params = {"neural_net":neuralnet,
                 "nb_processors":4, 
                 "scheduler":1e-3,
                 "times":times,
-                "nb_epochs":50,
+                "nb_epochs":20,
                 "batch_size":16,
                 "repeat_projection":2,
-                "nb_vectors":40,
+                "nb_vectors":4,
                 "key":key}
 
 
@@ -158,81 +159,81 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", title="Total loss histor
 
 
 
-#%% [markdown]
-# ## Compute metrics on a test dataset
+# #%% [markdown]
+# # ## Compute metrics on a test dataset
 
-#%% 
+# #%% 
 
-## Load the test dataset
-test_ds = load_jax_dataset(path="mnist", split="test")
-test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
-
-
-def accuracy_fn(y_pred, y):
-    y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
-    y = jnp.argmax(y, axis=-1)
-
-    return jnp.mean(y_pred == y, axis=-1)*100
-
-test_params = {"neural_net":dynamicnet,
-                "data":test_ds,
-                "basis":basis,
-                "pint_scheme":newton_scheme,
-                "integrator":euler_integrator, 
-                "acc_fn":accuracy_fn, 
-                "shooting_fn":shooting_fn,
-                "nb_processors":4, 
-                "times":times,
-                "batch_size":8}
+# ## Load the test dataset
+# test_ds = load_jax_dataset(path="mnist", split="test")
+# test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
 
 
-start_time = time.time()
+# def accuracy_fn(y_pred, y):
+#     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
+#     y = jnp.argmax(y, axis=-1)
 
-avg_acc = test_dynamic_net(**test_params)
+#     return jnp.mean(y_pred == y, axis=-1)*100
 
-test_wall_time = time.time() - start_time
-time_in_hms= seconds_to_hours(test_wall_time)
-
-print(f"\nAverage accuracy: {avg_acc:.2f} %")
-print("Test time: %d hours %d mins %d secs" %time_in_hms)
-
-#%% [markdown]
-# ## Write stuff to tensorboard
-
-#%% 
-
-run_name = str(datetime.datetime.now().strftime("%H:%M %d-%m-%Y"))[:19]
-writer = tensorboard.SummaryWriter("runs/"+run_name)
-
-hps = {}
-
-hps["bach_size"] = train_params["batch_size"]
-hps["scheduler"] = train_params["scheduler"]
-hps["nb_epochs"] = train_params["nb_epochs"]
-hps["nb_processors"] = train_params["nb_processors"]
-hps["repeat_projection"] = train_params["repeat_projection"]
-hps["nb_vectors"] = train_params["nb_vectors"]
-
-hps["times"] = (train_params["times"][0], train_params["times"][-1], len(train_params["times"]))
-hps["optim_scheme"] = train_params["optim_scheme"].__name__
-hps["pint_scheme"] = str(train_params["pint_scheme"])[45:-63]
-hps["key"] = SEED
-hps["integrator"] = train_params["integrator"].__name__
-hps["loss_fn"] = train_params["loss_fn"].__name__
-hps["data"] = str(get_dataset_features(train_params["data"]))
-hps["dynamicnet_size"] = sum(x.size for x in jax.tree_util.tree_leaves(eqx.partition(dynamicnet, eqx.is_array)[0]))
-
-hps["wall_time"] = wall_time
-hps["clock_time"] = clock_time
-
-hps["test_acc"] = avg_acc
-hps["test_wall_time"] = test_wall_time
-
-writer.hparams(hps)
+# test_params = {"neural_net":dynamicnet,
+#                 "data":test_ds,
+#                 "basis":basis,
+#                 "pint_scheme":newton_scheme,
+#                 "integrator":euler_integrator, 
+#                 "acc_fn":accuracy_fn, 
+#                 "shooting_fn":shooting_fn,
+#                 "nb_processors":4, 
+#                 "times":times,
+#                 "batch_size":8}
 
 
-for ep in range(len(total_epochs)):
-    writer.scalar('train_loss', total_loss[ep], ep+1)
+# start_time = time.time()
 
-writer.flush()
-writer.close()
+# avg_acc = test_dynamic_net(**test_params)
+
+# test_wall_time = time.time() - start_time
+# time_in_hms= seconds_to_hours(test_wall_time)
+
+# print(f"\nAverage accuracy: {avg_acc:.2f} %")
+# print("Test time: %d hours %d mins %d secs" %time_in_hms)
+
+# #%% [markdown]
+# # ## Write stuff to tensorboard
+
+# #%% 
+
+# run_name = str(datetime.datetime.now().strftime("%H:%M %d-%m-%Y"))[:19]
+# writer = tensorboard.SummaryWriter("runs/"+run_name)
+
+# hps = {}
+
+# hps["bach_size"] = train_params["batch_size"]
+# hps["scheduler"] = train_params["scheduler"]
+# hps["nb_epochs"] = train_params["nb_epochs"]
+# hps["nb_processors"] = train_params["nb_processors"]
+# hps["repeat_projection"] = train_params["repeat_projection"]
+# hps["nb_vectors"] = train_params["nb_vectors"]
+
+# hps["times"] = (train_params["times"][0], train_params["times"][-1], len(train_params["times"]))
+# hps["optim_scheme"] = train_params["optim_scheme"].__name__
+# hps["pint_scheme"] = str(train_params["pint_scheme"])[45:-63]
+# hps["key"] = SEED
+# hps["integrator"] = train_params["integrator"].__name__
+# hps["loss_fn"] = train_params["loss_fn"].__name__
+# hps["data"] = str(get_dataset_features(train_params["data"]))
+# hps["dynamicnet_size"] = sum(x.size for x in jax.tree_util.tree_leaves(eqx.partition(dynamicnet, eqx.is_array)[0]))
+
+# hps["wall_time"] = wall_time
+# hps["clock_time"] = clock_time
+
+# hps["test_acc"] = avg_acc
+# hps["test_wall_time"] = test_wall_time
+
+# writer.hparams(hps)
+
+
+# for ep in range(len(total_epochs)):
+#     writer.scalar('train_loss', total_loss[ep], ep+1)
+
+# writer.flush()
+# writer.close()
