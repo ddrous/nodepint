@@ -15,7 +15,7 @@ from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator
-from nodepint.pint import newton_root_finder, direct_root_finder
+from nodepint.pint import newton_root_finder, direct_root_finder, direct_fixed_point_finder
 from nodepint.projection import random_sampling, identity_sampling
 
 ## Use jax cpu
@@ -99,7 +99,8 @@ neuralnet = MLP(key=SEED)
 # newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
 
 # direct_scheme = partial(direct_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
-direct_scheme = direct_root_finder
+# direct_scheme = direct_root_finder
+direct_scheme = direct_fixed_point_finder
 
 key = get_new_keys(SEED)
 
@@ -115,10 +116,10 @@ train_params = {"neural_net":neuralnet,
                 "nb_processors":4, 
                 "scheduler":1e-3,
                 "times":times,
-                "nb_epochs":20,
+                "nb_epochs":200,
                 "batch_size":16,
-                "repeat_projection":2,
-                "nb_vectors":4,
+                "repeat_projection":4,
+                "nb_vectors":10,
                 "key":key}
 
 
@@ -150,7 +151,7 @@ print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 labels = [str(i) for i in range(len(loss_hts))]
 epochs = range(len(loss_hts[0]))
 
-sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", title="Loss history");
+sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", title="Loss histories");
 
 ## Loss histories acros all iterations
 total_loss = np.concatenate(loss_hts, axis=0)
