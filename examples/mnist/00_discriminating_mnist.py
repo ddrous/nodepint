@@ -97,7 +97,9 @@ neuralnet = MLP(key=SEED)
 
 ## PinT scheme with only mandatory arguments
 # newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
-direct_scheme = partial(direct_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
+
+# direct_scheme = partial(direct_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
+direct_scheme = direct_root_finder
 
 key = get_new_keys(SEED)
 

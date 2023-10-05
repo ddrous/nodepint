@@ -98,6 +98,9 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
 
     features = get_dataset_features(dataset)
 
+
+    # batch_size = 1
+
     loss_ht = []
     for epoch in range(nb_epochs):
 
@@ -126,7 +129,7 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
 
 
 
-@partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser"))
+# @partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser"))
 def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, optimiser, optstate):
 
     loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
@@ -137,17 +140,34 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
     return params, optstate, loss_val
 
 
+# from nodepint.pint import newton_root_finder, direct_root_finder
+# batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None), out_axes=0)
+# batched_pint_scheme = jax.vmap(direct_root_finder, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
+
+# batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
+
+
+
 ## A loss that only works for neural ODEs
 def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator):
     neural_net = combine_dynamic_net(params, static)
 
     sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
 
-    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None), out_axes=0)
+    # batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None), out_axes=0)
+    # batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
+    # batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
 
-    batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
+    batched_pint_scheme = pint_scheme
+    batched_model_pred = neural_net.predict
 
-    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator)[:, -x.shape[1]:]
+    print("x type:", type(x))
+    print("Types of other params:", type(shooting_fn), type(sht_init), x.shape, type(nb_processors), type(times), type(neural_net), type(integrator), type(1.), type(1e-6), type(3))
+
+    ## Jax print debug trace
+    # jax.debug.breakpoint()
+
+    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
 
     y_pred = batched_model_pred(final_feature)
 
