@@ -29,23 +29,25 @@ def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
     rhs = eqx.combine(rhs_params, static)
 
     ## Split times among N = nb_processors
-    times = np.array(times)[:, jnp.newaxis]
-    split_times = np.array_split(times, nb_splits)
+    # times = np.array(times)[:, jnp.newaxis]
+    # split_times = np.array_split(times, nb_splits)
+
+    t0, tf, N = times
+    N_ = N//nb_splits + 1
 
     Z_ = [z0]
     nz = z0.shape[0]
 
     for n in range(nb_splits):      ## TODO do this in parallel   
-        ts = split_times[n]
-        if n < nb_splits-1:
-            ts = np.concatenate([ts, split_times[n+1][0, jnp.newaxis]])      ## TODO do this just once, and reuse the ts later on
-        ts = tuple(ts.flatten())
+        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+        t_ = np.linspace(t0_, tf_, N_)
 
-        z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=ts)[-1,...]
+        z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
         Z_.append(z_next)
 
-    # return Z - jnp.concatenate(Z_, axis=0)
-    return -Z + jnp.concatenate(Z_, axis=0)
+    return Z - jnp.concatenate(Z_, axis=0)
+    # return -Z + jnp.concatenate(Z_, axis=0)
     # return jnp.concatenate(Z_, axis=0)          ## TODO remember this is a shooting function, so look above !
 
 
@@ -116,7 +118,7 @@ def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 def direct_fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):       ## See Massaroli
     ## Wrapper to use a shooting function as input like other APIs
 
-    fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: B + func(B, z0, nb_splits, times, rhs, static, integrator)
+    fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
 
     return fixed_point_finder(fp_func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
