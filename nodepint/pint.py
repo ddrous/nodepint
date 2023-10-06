@@ -28,10 +28,6 @@ def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
     ## Rebuild the equinox model
     rhs = eqx.combine(rhs_params, static)
 
-    ## Split times among N = nb_processors
-    # times = np.array(times)[:, jnp.newaxis]
-    # split_times = np.array_split(times, nb_splits)
-
     t0, tf, N = times
     N_ = N//nb_splits + 1
 
@@ -47,81 +43,74 @@ def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
         Z_.append(z_next)
 
     return Z - jnp.concatenate(Z_, axis=0)
-    # return -Z + jnp.concatenate(Z_, axis=0)
-    # return jnp.concatenate(Z_, axis=0)          ## TODO remember this is a shooting function, so look above !
-
 
 
 #%%
 
-## Newton's method - TODO we still need to define:
-# - custom JVP rule https://jax.readthedocs.io/en/latest/notebooks/Custom_derivative_rules_for_Python_code.html
-# - example of fixed-point interation in PyTorch http://implicit-layers-tutorial.org/deep_equilibrium_models/
-# @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))    ## TODO remember to jit
-def newton_root_finder(func, B0, z0, nb_splits, times, rhs, integrator, learning_rate, tol, max_iter):
+def newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
     grad = jax.jacfwd(func)
 
-    B = B0
+    # B = B0
+    # for k in range(max_iter):       ## MAX_ITER is N (see Massaroli)
 
-    for k in range(max_iter):       ## MAX_ITER is N (see Massaroli)
+    #     ## This also tells us whether we are recompiling
+    #     print("PinT iteration counter: ", k)
 
-        ## This also tells us whether we are recompiling
-        print("PinT iteration counter: ", k)
+    #     grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
+    #     func_eval = func(B, z0, nb_splits, times, rhs, integrator)
 
-        grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, integrator))
-        func_eval = func(B, z0, nb_splits, times, rhs, integrator)
+    #     B_new = B - learning_rate * grad_inv @ func_eval
 
-        B_new = B - learning_rate * grad_inv @ func_eval
+    #     # if jnp.linalg.norm(B_new - B) < tol:  ## TODO not jit-friendly
+    #     #     break
 
-        # if jnp.linalg.norm(B_new - B) < tol:  ## TODO not jit-friendly
-        #     break
+    #     B = B_new
+    # B_star = B
 
-        B = B_new
+    def cond_fun(carry):
+        B_prev, B = carry
+        return jnp.linalg.norm(B_prev - B) > 1e-4
 
-    return B
+    def body_fun(carry):
+        _, B = carry
+        grad_inv = jnp.linalg.inv(grad(B, z0, nb_splits, times, rhs, static, integrator))
+        func_eval = func(B, z0, nb_splits, times, rhs, static, integrator)
+        return B, B - learning_rate * grad_inv @ func_eval
+
+    _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, func(B0, z0, nb_splits, times, rhs, static, integrator)))
+
+    return B_star
 
 
-# @jax.custom_vjp
-# @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))    ## TODO remember to jit
-# @partial(jax.custom_vjp, nondiff_argnums=(0,3,4,6,7,8,9))
+
 def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):       ## See Massaroli
     grad = jax.jacfwd(func)
 
+    def cond_fun(carry):
+        B_prev, B = carry
+        return jnp.linalg.norm(B_prev - B) > 1e-4       ## Add a tolerance or a maxiter
 
-    ## Pirnt the type of every single argument of this function
-    B = B0
+    def body_fun(carry):
+        _, B = carry
+        grad_eval = grad(B, z0, nb_splits, times, rhs, static, integrator)
+        func_eval = func(B, z0, nb_splits, times, rhs, static, integrator)
+        return B, B + jnp.linalg.solve(grad_eval, -func_eval)
 
-    for k in range(max_iter):
-        ## Solve a linear system
+    _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, func(B0, z0, nb_splits, times, rhs, static, integrator)))
 
-        print("PinT iteration counter: ", k)
 
-        grad_eval = grad(B, z0, nb_splits, times, rhs, integrator)
-        func_eval = func(B, z0, nb_splits, times, rhs, integrator)
-
-        B_new = B + jnp.linalg.solve(grad_eval, -func_eval)
-
-        # if jnp.linalg.norm(B_new - B) < tol:
-        #     break
-
-        B = B_new
-
-    return B
+    return B_star
 
 
 
-    # return fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
-
-
-
-
+## !TODO This function does NOTHING. Delete it !
 def direct_fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):       ## See Massaroli
     ## Wrapper to use a shooting function as input like other APIs
 
-    fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
+    # fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
+    # return fixed_point_finder(fp_func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
-    return fixed_point_finder(fp_func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
-
+    return fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
 
 
@@ -138,11 +127,10 @@ def sequential_root_finder(func, z0, B0):
 
 
 
-# @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
-# @partial(jax.custom_vjp, nondiff_argnums=(0,2,3,4,6,7,8,9))
 @partial(jax.custom_vjp, nondiff_argnums=(0,3,4,6,7,8,9,10))
-def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
-    # jax.debug.breakpoint()
+def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):  ## !TODO name this as fixed point AD
+
+    fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
 
     def cond_fun(carry):
         B_prev, B = carry
@@ -150,30 +138,20 @@ def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
     def body_fun(carry):
         _, B = carry
-        return B, func(B, z0, nb_splits, times, rhs, static,integrator)
+        return B, fp_func(B, z0, nb_splits, times, rhs, static, integrator)
 
-    _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, func(B0, z0, nb_splits, times, rhs, static, integrator)))
+    _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, fp_func(B0, z0, nb_splits, times, rhs, static, integrator)))
     return B_star
 
 
-# @partial(jax.jit, static_argnums=(0, 3, 4, 5, 6, 7, 8, 9))
 def fixed_point_finder_fwd(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
-    # B_star = fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static,integrator, learning_rate, tol, max_iter)
+    ## TODO should I add an argument "pint_scheme" for the fixed point/root function ?
 
-    # zero_func = lambda B, z0, nb_splits, times, rhs, integrator: B-func(B, z0, nb_splits, times, rhs, integrator)
-    # B_star = direct_root_finder(zero_func, B0, z0, nb_splits, times, rhs, static,integrator, learning_rate, tol, max_iter)
     B_star = fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+    # B_star = direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+    # B_star = newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
-    # return B_star, (B_star, z0, nb_splits, times, rhs, integrator, learning_rate, tol, max_iter)
     return B_star, (B_star, z0, rhs)
-
-
-
-
-# def rev_iter(func, packed, w):
-#     z0, nb_splits, times, rhs, integrator, B_star, v = packed
-#     _, vjp_B = jax.vjp(lambda B: func(B, z0, nb_splits, times, rhs, integrator), B_star)
-#     return v + vjp_B(w)[0]
 
 
 def inner_fixed_point_finder(func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter):
@@ -196,16 +174,11 @@ def inner_fixed_point_finder(func, B_star, z0, nb_splits, times, rhs, static, in
 def fixed_point_finder_bwd(func, nb_splits, times, static, integrator, learning_rate, tol, max_iter, res, v):
     B_star, z0, rhs = res
 
-# def fixed_point_finder_bwd(func, res, v):
-#     B_star, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter = res
+    fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
 
-    _, vjp_theta = jax.vjp(lambda theta: func(B_star, z0, nb_splits, times, theta, static, integrator), rhs)
+    _, vjp_theta = jax.vjp(lambda theta: fp_func(B_star, z0, nb_splits, times, theta, static, integrator), rhs)
 
-    # w = fixed_point_finder(partial(rev_iter, func),
-    #                         (z0, nb_splits, times, rhs, static, integrator, B_star, v),
-    #                          v)
-
-    w = inner_fixed_point_finder(func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter)
+    w = inner_fixed_point_finder(fp_func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter)
 
     theta_bar, = vjp_theta(w)
 

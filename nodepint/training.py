@@ -67,7 +67,11 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
 
         ## Sample a vector
-        basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=nb_vectors, key=proj_key)
+        if p>0 and proj_scheme.__name__=="identity_sampling":
+            print("Cannot perform basis augmentation with identity sampling")
+            break
+        else:
+            basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=nb_vectors, key=proj_key)
 
         print("\nBasis constructed, with shape:", basis.shape)
 
@@ -98,7 +102,7 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
 
     features = get_dataset_features(dataset)
 
-
+    print_every = nb_epochs//10 if nb_epochs>10 else 1
     # batch_size = 1
 
     loss_ht = []
@@ -120,7 +124,9 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
             nb_batches += 1
 
         loss_eph /= nb_batches
-        print("Epoch: %-5d      Loss: %.6f" % (epoch, loss_eph))
+
+        if epoch<3 or epoch%print_every==0:
+            print("Epoch: %-5d      Loss: %.6f" % (epoch, loss_eph))
 
         loss_ht.append(loss_eph)
 
@@ -168,7 +174,7 @@ def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proces
     # jax.debug.breakpoint()
 
     # final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
-    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
+    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 5)[:, -x.shape[1]:]
 
     y_pred = batched_model_pred(final_feature)
 
@@ -219,11 +225,11 @@ def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_process
 
     sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
 
-    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None), out_axes=0)
+    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None, None), out_axes=0)
 
     batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
 
-    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator)[:, -x.shape[1]:]
+    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
 
     y_pred = batched_model_pred(final_feature)
 

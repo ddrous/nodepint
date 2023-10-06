@@ -59,13 +59,17 @@ class MLP(eqx.Module):
 #%%
 
 ds = load_jax_dataset(path="mnist", split="train")
-ds = preprocess_mnist(ds, subset_size=32, seed=SEED, norm_factor=255.)
+ds = preprocess_mnist(ds, subset_size=32*2, seed=SEED, norm_factor=255.)
+# ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
 print("features", get_dataset_features(ds))
+print("num rows", ds.num_rows)
 
 ## Visualise a datapoint
-pixels = ds[0]["image"]
-label = ds[0]["label"]
+np.random.seed(time.time_ns()%(2**32))
+point_id = np.random.randint(0, ds.num_rows)
+pixels = ds[point_id]["image"]
+label = ds[point_id]["label"]
 
 plt.title('Label is {label}'.format(label=label.argmax()))
 plt.imshow(pixels, cmap='gray')
@@ -119,7 +123,7 @@ train_params = {"neural_net":neuralnet,
                 "times":times,
                 "nb_epochs":20,
                 "batch_size":16,
-                "repeat_projection":4,
+                "repeat_projection":3,
                 "nb_vectors":10,
                 "key":key}
 
@@ -152,54 +156,70 @@ print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 labels = [str(i) for i in range(len(loss_hts))]
 epochs = range(len(loss_hts[0]))
 
-sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", title="Loss histories");
+sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", y_scale="log", title="Loss histories");
 
 ## Loss histories acros all iterations
 total_loss = np.concatenate(loss_hts, axis=0)
 total_epochs = 1 + np.arange(len(total_loss))
 
-ax = sbplot(total_epochs, total_loss, x_label="epochs", title="Total loss history");
+ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
+
+
 
 
 
 
 # #%% [markdown]
-# # ## Compute metrics on a test dataset
+# # ## Quick profiling
 
 # #%% 
+# import cProfile
 
-# ## Load the test dataset
-# test_ds = load_jax_dataset(path="mnist", split="test")
-# test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
+# def main():
+#     train_parallel_neural_ode(**train_params)
 
-
-# def accuracy_fn(y_pred, y):
-#     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
-#     y = jnp.argmax(y, axis=-1)
-
-#     return jnp.mean(y_pred == y, axis=-1)*100
-
-# test_params = {"neural_net":dynamicnet,
-#                 "data":test_ds,
-#                 "basis":basis,
-#                 "pint_scheme":newton_scheme,
-#                 "integrator":euler_integrator, 
-#                 "acc_fn":accuracy_fn, 
-#                 "shooting_fn":shooting_fn,
-#                 "nb_processors":4, 
-#                 "times":times,
-#                 "batch_size":8}
+# cProfile.run('main()', sort='cumtime')
 
 
-# start_time = time.time()
+#%% [markdown]
+# ## Compute metrics on a test dataset
 
-# avg_acc = test_dynamic_net(**test_params)
+#%% 
 
-# test_wall_time = time.time() - start_time
-# time_in_hms= seconds_to_hours(test_wall_time)
+## Load the test dataset
+test_ds = load_jax_dataset(path="mnist", split="test")
+test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
 
-# print(f"\nAverage accuracy: {avg_acc:.2f} %")
-# print("Test time: %d hours %d mins %d secs" %time_in_hms)
+
+def accuracy_fn(y_pred, y):
+    y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
+    y = jnp.argmax(y, axis=-1)
+
+    return jnp.mean(y_pred == y, axis=-1)*100
+
+
+test_params = {"neural_net":dynamicnet,
+                "data":test_ds,
+                "basis":basis,
+                "pint_scheme":newton_root_finder,       ## If None then the fixed_point_ad_rule is used
+                # "pint_scheme":direct_scheme,
+                "integrator":euler_integrator, 
+                "acc_fn":accuracy_fn, 
+                "shooting_fn":shooting_fn,
+                "nb_processors":4, 
+                "times":times,
+                "batch_size":8}
+
+
+start_time = time.time()
+
+avg_acc = test_dynamic_net(**test_params)
+
+test_wall_time = time.time() - start_time
+time_in_hms= seconds_to_hours(test_wall_time)
+
+print(f"\nAverage accuracy: {avg_acc:.2f} %")
+print("Test time: %d hours %d mins %d secs" %time_in_hms)
 
 # #%% [markdown]
 # # ## Write stuff to tensorboard
@@ -241,3 +261,5 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", title="Total loss histor
 
 # writer.flush()
 # writer.close()
+
+# %%
