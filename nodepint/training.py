@@ -13,7 +13,7 @@ from functools import partial
 from .neuralnets import (DynamicNet, 
                          add_neurons_to_input_layer, add_neurons_to_output_layer, add_neurons_to_prediction_layer,
                          partition_dynamic_net, combine_dynamic_net)
-from .pint import select_root_finding_function, shooting_function
+from .pint import select_root_finding_function, shooting_function, fixed_point_ad
 from .projection import select_projection_scheme
 from .data import get_dataset_features
 from .utils import get_new_keys
@@ -40,7 +40,7 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         proj_scheme = select_projection_scheme(proj_scheme)
     print("Projection function name: ", proj_scheme.__name__)
 
-    ## TODO use many projections per-data points
+    ## TODO use many projections per-data points. The Pint scheme can be any root finder, or parareal
     if isinstance(pint_scheme, str):
         pint_scheme = select_root_finding_function(pint_scheme)
     # print("Time-parallel function name: ", pint_scheme.__name__)
@@ -160,23 +160,13 @@ def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proces
 
     sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
 
-    # batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None), out_axes=0)
-    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None, None), out_axes=0)
-    batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
+    batched_pint = jax.vmap(fixed_point_ad, in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
+    batched_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
 
-    # batched_pint_scheme = pint_scheme
-    # batched_model_pred = neural_net.predict
 
-    # print("x type:", type(x))
-    # print("Types of other params:", type(shooting_fn), type(sht_init), x.shape, type(nb_processors), type(times), type(neural_net), type(integrator), type(1.), type(1e-6), type(3))
+    final_feature = batched_pint(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, pint_scheme, 1., 1e-6, 5)[:, -x.shape[1]:]
 
-    ## Jax print debug trace
-    # jax.debug.breakpoint()
-
-    # final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, neural_net, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
-    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 5)[:, -x.shape[1]:]
-
-    y_pred = batched_model_pred(final_feature)
+    y_pred = batched_pred(final_feature)
 
     # return jnp.mean(jax.vmap(loss_fn, in_axes=(0, 0))(y_pred, y))
 

@@ -15,7 +15,7 @@ from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator
-from nodepint.pint import newton_root_finder, direct_root_finder, direct_fixed_point_finder
+from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder
 from nodepint.projection import random_sampling, identity_sampling
 
 ## Use jax cpu
@@ -101,21 +101,17 @@ neuralnet = MLP(key=SEED)
 # neuralnet = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=get_key(None))
 
 ## PinT scheme with only mandatory arguments
-# newton_scheme = partial(newton_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
 
-# direct_scheme = partial(direct_root_finder, learning_rate=1., tol=1e-6, max_iter=3)
-# direct_scheme = direct_root_finder
-direct_scheme = direct_fixed_point_finder
 
 key = get_new_keys(SEED)
 
 train_params = {"neural_net":neuralnet,
                 "data":ds,
-                "pint_scheme":direct_scheme,
+                "pint_scheme":fixed_point_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                "integrator":euler_integrator, 
-                # "integrator":dopri_integrator, 
+                # "integrator":euler_integrator, 
+                "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
                 "nb_processors":4, 

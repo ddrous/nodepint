@@ -83,12 +83,12 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
 
 
-def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):       ## See Massaroli
+def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
     grad = jax.jacfwd(func)
 
     def cond_fun(carry):
         B_prev, B = carry
-        return jnp.linalg.norm(B_prev - B) > 1e-4       ## Add a tolerance or a maxiter
+        return jnp.linalg.norm(B_prev - B) > 1e-4       ## TODO Add a tolerance or a maxiter
 
     def body_fun(carry):
         _, B = carry
@@ -102,32 +102,6 @@ def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
     return B_star
 
 
-
-## !TODO This function does NOTHING. Delete it !
-def direct_fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):       ## See Massaroli
-    ## Wrapper to use a shooting function as input like other APIs
-
-    # fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
-    # return fixed_point_finder(fp_func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
-
-    return fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
-
-
-
-def sequential_root_finder(func, z0, B0):
-    pass
-
-
-
-
-
-
-
-
-
-
-
-@partial(jax.custom_vjp, nondiff_argnums=(0,3,4,6,7,8,9,10))
 def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):  ## !TODO name this as fixed point AD
 
     fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
@@ -144,17 +118,51 @@ def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
     return B_star
 
 
-def fixed_point_finder_fwd(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
+
+def sequential_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
+    pass
+
+
+def parareal(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
+    pass
+
+
+
+
+
+@partial(jax.custom_vjp, nondiff_argnums=(0,3,4,6,7,8,9,10,11))
+def fixed_point_ad(func, B0, z0, nb_splits, times, rhs, static, integrator, pint_scheme, learning_rate, tol, max_iter):  ## !TODO name this as fixed point AD
+
+    # fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
+
+    # def cond_fun(carry):
+    #     B_prev, B = carry
+    #     return jnp.linalg.norm(B_prev - B) > 1e-2
+
+    # def body_fun(carry):
+    #     _, B = carry
+    #     return B, fp_func(B, z0, nb_splits, times, rhs, static, integrator)
+
+    # _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, fp_func(B0, z0, nb_splits, times, rhs, static, integrator)))
+
+    B_star = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+
+    return B_star
+
+
+def fixed_point_ad_fwd(func, B0, z0, nb_splits, times, rhs, static, integrator, pint_scheme, learning_rate, tol, max_iter):
     ## TODO should I add an argument "pint_scheme" for the fixed point/root function ?
 
-    B_star = fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+    # B_star = fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
     # B_star = direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
     # B_star = newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+
+    B_star = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
     return B_star, (B_star, z0, rhs)
 
 
-def inner_fixed_point_finder(func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter):
+def inner_fixed_point_ad(func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter):
 
     _, vjp_B = jax.vjp(lambda B: func(B, z0, nb_splits, times, rhs, static, integrator), B_star)
 
@@ -171,18 +179,18 @@ def inner_fixed_point_finder(func, B_star, z0, nb_splits, times, rhs, static, in
 
 
 
-def fixed_point_finder_bwd(func, nb_splits, times, static, integrator, learning_rate, tol, max_iter, res, v):
+def fixed_point_ad_bwd(func, nb_splits, times, static, integrator, pint_scheme, learning_rate, tol, max_iter, res, v):
     B_star, z0, rhs = res
 
     fp_func = lambda B, z0, nb_splits, times, rhs, static, integrator: -B + func(B, z0, nb_splits, times, rhs, static, integrator)
 
     _, vjp_theta = jax.vjp(lambda theta: fp_func(B_star, z0, nb_splits, times, theta, static, integrator), rhs)
 
-    w = inner_fixed_point_finder(fp_func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter)
+    w = inner_fixed_point_ad(fp_func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter)
 
     theta_bar, = vjp_theta(w)
 
     return jnp.zeros_like(B_star), None, theta_bar
 
 
-fixed_point_finder.defvjp(fixed_point_finder_fwd, fixed_point_finder_bwd)
+fixed_point_ad.defvjp(fixed_point_ad_fwd, fixed_point_ad_bwd)

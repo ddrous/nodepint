@@ -18,20 +18,21 @@ import numpy as np
 
 ## The default Jax differentiable integrator
 # dopri_integrator = jax.jit(odeint, static_argnums=(0))
-dopri_integrator = odeint
-# def dopri_integrator(func, t, y0):      ## Inverts the order of t and y0 passed to func
-#     return odeint(func, y0, t, rtol=1e-3, atol=1e-3, mxstep=1000, hmax=1e-5)
+# dopri_integrator = odeint
+
+def dopri_integrator(func, y0, t, hmax=1e-2):      ## Inverts the order of t and y0 passed to func
+    return odeint(func, y0, jnp.asarray(t), rtol=1e-6, atol=1e-6, mxstep=jnp.inf, hmax=hmax)
 
 ## Simple Euler integrator
 def euler_step(func, y, t, dt):
-    ret = y+func(y, t)*dt, t + dt
+    ret = y+func(y, t)*dt, t+dt
     return ret
 
 
 # @partial(jax.jit, static_argnums=(0, 2, 3))
 def euler_integrator(func, y0, t, hmax=1e-2):
 
-    t = np.array(t)
+    # t = np.array(t)
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     nb_iter = int((t[-1] - t[0]) / dt)
 

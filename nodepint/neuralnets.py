@@ -60,7 +60,8 @@ class DynamicNet(eqx.Module):
 
     def __call__(self, x, t):
 
-        tx = jnp.concatenate([t, x], axis=-1)
+        # tx = jnp.concatenate([t, x], axis=-1)
+        tx = jnp.concatenate([jnp.broadcast_to(t, (1,)), x], axis=-1)
 
         y = self.dyn_input_layer(tx)
         y = self.sta_hidden_layers(y)
