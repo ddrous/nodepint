@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from jax.experimental.ode import odeint
 
 import numpy as np
+import equinox as eqx
 
 ## The interface of each integrator is:
 # - the function func,
@@ -20,24 +21,32 @@ import numpy as np
 # dopri_integrator = jax.jit(odeint, static_argnums=(0))
 # dopri_integrator = odeint
 
-def dopri_integrator(func, y0, t, hmax=1e-2):      ## Inverts the order of t and y0 passed to func
-    return odeint(func, y0, jnp.asarray(t), rtol=1e-6, atol=1e-6, mxstep=jnp.inf, hmax=hmax)
+def dopri_integrator(rhs_params, static, y0, t, hmax=1e-2):      ## Inverts the order of t and y0 passed to func
+    # print("Yo shape is: ", y0.shape)
+    # print("rhs shapes:", rhs)
+
+    def rhs(y, t):
+        return eqx.combine(rhs_params, static)(y, t)
+
+    return odeint(rhs, y0, t, rtol=1e-6, atol=1e-6, mxstep=100, hmax=hmax)
 
 ## Simple Euler integrator
-def euler_step(func, y, t, dt):
-    ret = y+func(y, t)*dt, t+dt
+def euler_step(rhs, y, t, dt):
+    ret = y+rhs(y, t)*dt, t+dt
     return ret
 
 
 # @partial(jax.jit, static_argnums=(0, 2, 3))
-def euler_integrator(func, y0, t, hmax=1e-2):
+def euler_integrator(rhs_params, static, y0, t, hmax=1e-2):
+
+    rhs = eqx.combine(rhs_params, static)
 
     # t = np.array(t)
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     nb_iter = int((t[-1] - t[0]) / dt)
 
     def body_func(i, yt):       ## TODO this is sooo not functional
-        newy, newt = euler_step(func, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
+        newy, newt = euler_step(rhs, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
         yt = yt.at[i, 0].set(newt[0])
         yt = yt.at[i, 1:].set(newy)
         return yt
@@ -82,23 +91,23 @@ if __name__ == "__main__":
     # %timeit -n1 -r2 euler_integrator(lorentz, u0, t=times[:], hmax=hmax)
 
     ## Plot the attractors with pyvista
-    from utils import pvplot
+    # from utils import pvplot
 
-    us = dopri_integrator(lorentz, u0, t=times)
-    ax = pvplot(us[:,0], us[:,2], label="Jax's RK", show=False, color="b", width=2, style="-")
+    # us = dopri_integrator(lorentz, u0, t=times)
+    # ax = pvplot(us[:,0], us[:,2], label="Jax's RK", show=False, color="b", width=2, style="-")
 
-    # u0 = jnp.array([1., 1.001, 1.])
-    us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
-    ax = pvplot(us[:,0], us[:,2], ax=ax, xlabel="x", ylabel="z", label="Euler Explicit", title="Lorentz's attractors", color="r", width=1, style="-")
-
-    # # Plot the attractors with seaborn
-    # from utils import sbplot
-
-    # us = dopri_integrator(lorentz, u0, t=times, hmax=hmax)
-    # ax = sbplot(us[:,0], us[:,2], label="Jax's RK", color="b", lw=2)
-
+    # # u0 = jnp.array([1., 1.001, 1.])
     # us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
-    # ax = sbplot(us[:,0], us[:,2], ".-", markersize=2, ax=ax, x_label="x", y_label="z", label="Euler Explicit", title="Lorentz's attractors", color="r", lw=1)
+    # ax = pvplot(us[:,0], us[:,2], ax=ax, xlabel="x", ylabel="z", label="Euler Explicit", title="Lorentz's attractors", color="r", width=1, style="-")
+
+    # Plot the attractors with seaborn
+    from utils import sbplot
+
+    us = dopri_integrator(lorentz, u0, t=times, hmax=hmax)
+    ax = sbplot(us[:,0], us[:,2], label="Jax's RK", color="b", lw=2)
+
+    us = euler_integrator(lorentz, u0, t=times, hmax=hmax)
+    ax = sbplot(us[:,0], us[:,2], ".-", markersize=2, ax=ax, x_label="x", y_label="z", label="Euler Explicit", title="Lorentz's attractors", color="r", lw=1)
 
 
 # %%

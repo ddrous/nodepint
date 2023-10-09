@@ -26,7 +26,7 @@ def select_root_finding_function(pint_scheme:str):
 def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
     ## Rebuild the equinox model
-    rhs = eqx.combine(rhs_params, static)
+    # rhs = eqx.combine(rhs_params, static)
 
     t0, tf, N = times
     N_ = N//nb_splits + 1
@@ -39,7 +39,8 @@ def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
         t_ = np.linspace(t0_, tf_, N_)
 
-        z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
+        # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
+        z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
         Z_.append(z_next)
 
     return Z - jnp.concatenate(Z_, axis=0)

@@ -85,7 +85,7 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0, 1, 101)
+times = (0.0, 1.0, 101)
 
 loss = optax.softmax_cross_entropy
 
@@ -108,10 +108,11 @@ key = get_new_keys(SEED)
 train_params = {"neural_net":neuralnet,
                 "data":ds,
                 "pint_scheme":fixed_point_finder,
+                # "pint_scheme":direct_root_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                # "integrator":euler_integrator, 
-                "integrator":dopri_integrator, 
+                "integrator":euler_integrator, 
+                # "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
                 "nb_processors":4, 
