@@ -2,6 +2,10 @@
 #%%
 import time
 import jax
+
+## Use jax cpu
+jax.config.update("jax_platform_name", "cpu")
+
 import jax.numpy as jnp
 import numpy as np
 import equinox as eqx
@@ -18,8 +22,10 @@ from nodepint.integrators import dopri_integrator, euler_integrator
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder
 from nodepint.projection import random_sampling, identity_sampling
 
-## Use jax cpu
-# jax.config.update("jax_platform_name", "cpu")
+
+import os
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'    ## Trick to virtualise CPU for pmap
+print("Available devices:", jax.devices())
 
 SEED = 27
 
@@ -111,11 +117,11 @@ train_params = {"neural_net":neuralnet,
                 # "pint_scheme":direct_root_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                "integrator":euler_integrator, 
-                # "integrator":dopri_integrator, 
+                # "integrator":euler_integrator, 
+                "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
-                "nb_processors":4, 
+                "nb_processors":jax.local_device_count(), 
                 "scheduler":1e-3,
                 "times":times,
                 "nb_epochs":20,

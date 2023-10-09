@@ -42,6 +42,7 @@ def euler_integrator(rhs_params, static, y0, t, hmax=1e-2):
     rhs = eqx.combine(rhs_params, static)
 
     # t = np.array(t)
+    # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
     nb_iter = int((t[-1] - t[0]) / dt)
 

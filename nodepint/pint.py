@@ -22,28 +22,111 @@ def select_root_finding_function(pint_scheme:str):
 
     return root_finder
 
+## TODO non-parallelised version
+# def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
+
+#     ## Rebuild the equinox model
+#     # rhs = eqx.combine(rhs_params, static)
+
+#     t0, tf, N = times
+#     N_ = N//nb_splits + 1
+
+#     Z_ = [z0]
+#     nz = z0.shape[0]
+
+#     for n in range(nb_splits):      ## TODO do this in parallel   
+#         t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+#         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+#         t_ = np.linspace(t0_, tf_, N_)
+
+#         # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
+#         z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
+#         Z_.append(z_next)
+
+#     return Z - jnp.concatenate(Z_, axis=0)
+
+
+
+
+# ## TODO struglles to duplicate the static arrays. Cannot convert list of funcs to arrays
+# def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
+
+#     ## Rebuild the equinox model
+#     # rhs = eqx.combine(rhs_params, static)
+
+#     t0, tf, N = times
+#     N_ = N//nb_splits + 1
+
+#     Z_ = [z0]
+#     nz = z0.shape[0]
+
+#     t_s = []
+#     z0_s = []
+#     for n in range(nb_splits):      ## TODO do this in parallel   
+#         t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+#         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+#         t_ = np.linspace(t0_, tf_, N_)
+
+#         t_s.append(t_)
+#         z0_s.append(Z[n*nz:(n+1)*nz])
+    
+#     t_s = jnp.stack(t_s, axis=0)
+#     z0_s = jnp.stack(z0_s, axis=0)
+
+#     # print("Rhs is :", rhs_params)
+#     # print("Static is :", static)
+
+#     # p_rhs_params = jax.tree_map(lambda x: [x] * nb_splits, rhs_params)
+#     p_rhs_params = jax.tree_map(lambda x: jnp.array([x] * nb_splits), rhs_params)
+#     # p_static = jax.tree_map(lambda x: jnp.array([x] * nb_splits), static)
+#     p_static = jax.tree_map(lambda x: [x] * nb_splits, static)
+
+#     ## Parallelise accross devices
+#     # Z_next = jax.pmap(integrator, static_broadcasted_argnums=2)(p_rhs_params, p_static, z0_s, t=t_s)
+#     Z_next = jax.pmap(integrator, in_axes=(0, None, 0, 0, None))(p_rhs_params, static, z0_s, t_s, 1e-2)
+
+#     ## Only keep the last value per device, plus z0
+#     Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0)
+
+#     return Z - Z_next
+
+
+
+
+import jax.experimental.mesh_utils as mesh_utils
+import jax.sharding as sharding
 
 def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
-    ## Rebuild the equinox model
-    # rhs = eqx.combine(rhs_params, static)
-
     t0, tf, N = times
     N_ = N//nb_splits + 1
-
-    Z_ = [z0]
     nz = z0.shape[0]
 
-    for n in range(nb_splits):      ## TODO do this in parallel   
+    t_s = []
+    z0_s = []
+    for n in range(nb_splits):
         t0_ = t0 + (n+0)*(tf-t0)/nb_splits
         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
         t_ = np.linspace(t0_, tf_, N_)
 
-        # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
-        z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
-        Z_.append(z_next)
+        t_s.append(t_)
+        z0_s.append(Z[n*nz:(n+1)*nz])
+    
+    t_s = jnp.stack(t_s, axis=0)
+    z0_s = jnp.stack(z0_s, axis=0)
 
-    return Z - jnp.concatenate(Z_, axis=0)
+    devices = mesh_utils.create_device_mesh((nb_splits, 1))
+    shard = sharding.PositionalSharding(devices)
+
+    ## Spread data accross devices and compute TODO can we avoid vmap! https://docs.kidger.site/equinox/examples/parallelism/
+    z0_s, t_s = jax.device_put((z0_s, t_s), shard)
+    Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, 1e-2)
+
+    ## Only keep the last value per device, plus z0
+    Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0).flatten()
+
+    return Z - Z_next
+
 
 
 #%%
