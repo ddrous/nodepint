@@ -17,3 +17,6 @@ nodepint/__pycache__/*
 # For tensorboard logs
 *v2
 *ubyte.gz
+
+# For slurm out files
+*.out
