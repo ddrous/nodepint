@@ -20,3 +20,6 @@ nodepint/__pycache__/*
 
 # For slurm out files
 *.out
+
+# For Isambard
+*.pbs*

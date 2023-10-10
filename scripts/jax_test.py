@@ -1,13 +1,13 @@
 import numpy as np
-import jax.numpy as jnp
 import jax
+
+# jax.config.update("jax_platform_name", "cpu")
+
+import jax.numpy as jnp
 import time
 
-
-## Some commands to quickly try stuff
-# sbatch scripts/jade.sh  # Submit the script to JADE
-# sacct -u rrn27-wwp02    # Monitor my jobs
-
+# import os
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=32'    ## Trick to virtualise CPU for pmap
 
 print("Jax devices are:", jax.devices())
 print("Jax version:", jax.__version__)
