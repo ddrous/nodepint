@@ -3,9 +3,11 @@
 
 import jax
 import jax.numpy as jnp
-from functools import partial
-import equinox as eqx
 
+import jax.experimental.mesh_utils as mesh_utils
+import jax.sharding as sharding
+
+from functools import partial
 import numpy as np
 
 
@@ -22,34 +24,68 @@ def select_root_finding_function(pint_scheme:str):
 
     return root_finder
 
-## TODO non-parallelised version
-# def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
-#     ## Rebuild the equinox model
-#     # rhs = eqx.combine(rhs_params, static)
+def shooting_function_serial(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
-#     t0, tf, N = times
-#     N_ = N//nb_splits + 1
+    ## Rebuild the equinox model
+    # rhs = eqx.combine(rhs_params, static)
 
-#     Z_ = [z0]
-#     nz = z0.shape[0]
+    t0, tf, N = times[:3]
+    hmax = times[3] if len(times)>3 else 1e-2
+    N_ = N//nb_splits + 1
 
-#     for n in range(nb_splits):      ## TODO do this in parallel   
-#         t0_ = t0 + (n+0)*(tf-t0)/nb_splits
-#         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
-#         t_ = np.linspace(t0_, tf_, N_)
+    Z_ = [z0]
+    nz = z0.shape[0]
 
-#         # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
-#         z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
-#         Z_.append(z_next)
+    for n in range(nb_splits):      ## TODO do this in parallel   
+        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+        t_ = np.linspace(t0_, tf_, N_)
 
-#     return Z - jnp.concatenate(Z_, axis=0)
+        # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
+        z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t_, hmax)[-1,...]
+        Z_.append(z_next)
 
+    return Z - jnp.concatenate(Z_, axis=0)
+
+
+
+def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, integrator):
+
+    t0, tf, N = times[:3]
+    hmax = times[3] if len(times)>3 else 1e-2
+    N_ = N//nb_splits + 1
+    nz = z0.shape[0]
+
+    t_s = []
+    z0_s = []
+    for n in range(nb_splits):
+        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+        t_ = np.linspace(t0_, tf_, N_)
+
+        t_s.append(t_)
+        z0_s.append(Z[n*nz:(n+1)*nz])
+    
+    t_s = jnp.stack(t_s, axis=0)
+    z0_s = jnp.stack(z0_s, axis=0)
+
+    devices = mesh_utils.create_device_mesh((nb_splits, 1))
+    shard = sharding.PositionalSharding(devices)
+
+    ## Spread data accross devices and compute TODO can we avoid vmap! https://docs.kidger.site/equinox/examples/parallelism/
+    z0_s, t_s = jax.device_put((z0_s, t_s), shard)
+    Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, hmax)
+
+    ## Only keep the last value per device, plus z0
+    Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0).flatten()
+
+    return Z - Z_next
 
 
 
 # ## TODO struglles to duplicate the static arrays. Cannot convert list of funcs to arrays
-# def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
+# def shooting_function_pmap(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
 #     ## Rebuild the equinox model
 #     # rhs = eqx.combine(rhs_params, static)
@@ -89,43 +125,6 @@ def select_root_finding_function(pint_scheme:str):
 #     Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0)
 
 #     return Z - Z_next
-
-
-
-
-import jax.experimental.mesh_utils as mesh_utils
-import jax.sharding as sharding
-
-def shooting_function(Z, z0, nb_splits, times, rhs_params, static, integrator):
-
-    t0, tf, N = times
-    N_ = N//nb_splits + 1
-    nz = z0.shape[0]
-
-    t_s = []
-    z0_s = []
-    for n in range(nb_splits):
-        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
-        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
-        t_ = np.linspace(t0_, tf_, N_)
-
-        t_s.append(t_)
-        z0_s.append(Z[n*nz:(n+1)*nz])
-    
-    t_s = jnp.stack(t_s, axis=0)
-    z0_s = jnp.stack(z0_s, axis=0)
-
-    devices = mesh_utils.create_device_mesh((nb_splits, 1))
-    shard = sharding.PositionalSharding(devices)
-
-    ## Spread data accross devices and compute TODO can we avoid vmap! https://docs.kidger.site/equinox/examples/parallelism/
-    z0_s, t_s = jax.device_put((z0_s, t_s), shard)
-    Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, 1e-2)
-
-    ## Only keep the last value per device, plus z0
-    Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0).flatten()
-
-    return Z - Z_next
 
 
 
@@ -209,6 +208,49 @@ def sequential_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrat
 
 def parareal(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
     pass
+
+
+## TODO anderson acceleration from http://implicit-layers-tutorial.org/implicit_functions/
+# def anderson_solver(f, z_init, m=5, lam=1e-4, max_iter=50, tol=1e-5, beta=1.0):
+#   x0 = z_init
+#   x1 = f(x0)
+#   x2 = f(x1)
+#   X = jnp.concatenate([jnp.stack([x0, x1]), jnp.zeros((m - 2, *jnp.shape(x0)))])
+#   F = jnp.concatenate([jnp.stack([x1, x2]), jnp.zeros((m - 2, *jnp.shape(x0)))])
+
+#   def step(n, k, X, F):
+#     G = F[:n] - X[:n]
+#     GTG = jnp.tensordot(G, G, [list(range(1, G.ndim))] * 2)
+#     H = jnp.block([[jnp.zeros((1, 1)), jnp.ones((1, n))],
+#                    [ jnp.ones((n, 1)), GTG]]) + lam * jnp.eye(n + 1)
+#     alpha = jnp.linalg.solve(H, jnp.zeros(n+1).at[0].set(1))[1:]
+
+#     xk = beta * jnp.dot(alpha, F[:n]) + (1-beta) * jnp.dot(alpha, X[:n])
+#     X = X.at[k % m].set(xk)
+#     F = F.at[k % m].set(f(xk))
+#     return X, F
+
+#   # unroll the first m steps
+#   for k in range(2, m):
+#     X, F = step(k, k, X, F)
+#     res = jnp.linalg.norm(F[k] - X[k]) / (1e-5 + jnp.linalg.norm(F[k]))
+#     if res < tol or k + 1 >= max_iter:
+#       return X[k], k
+
+#   # run the remaining steps in a lax.while_loop
+#   def body_fun(carry):
+#     k, X, F = carry
+#     X, F = step(m, k, X, F)
+#     return k + 1, X, F
+
+#   def cond_fun(carry):
+#     k, X, F = carry
+#     kmod = (k - 1) % m
+#     res = jnp.linalg.norm(F[kmod] - X[kmod]) / (1e-5 + jnp.linalg.norm(F[kmod]))
+#     return (k < max_iter) & (res >= tol)
+
+#   k, X, F = lax.while_loop(cond_fun, body_fun, (k + 1, X, F))
+#   return X[(k - 1) % m]
 
 
 

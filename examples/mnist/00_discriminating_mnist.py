@@ -18,7 +18,7 @@ from flax.metrics import tensorboard
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
-from nodepint.integrators import dopri_integrator, euler_integrator
+from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder
 from nodepint.projection import random_sampling, identity_sampling
 
@@ -26,6 +26,8 @@ from nodepint.projection import random_sampling, identity_sampling
 import os
 os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'    ## Trick to virtualise CPU for pmap
 print("Available devices:", jax.devices())
+
+nb_devices = jax.local_device_count()
 
 SEED = 27
 
@@ -91,7 +93,9 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 101)
+times = (0.0, 1.0, 101, 1e-4)       ## t0, tf, nb_times, hmax
+
+fixed_point_args = (1., 1e-6, 5)    ## learning_rate, tol, max_iter
 
 loss = optax.softmax_cross_entropy
 
@@ -108,7 +112,6 @@ neuralnet = MLP(key=SEED)
 
 ## PinT scheme with only mandatory arguments
 
-
 key = get_new_keys(SEED)
 
 train_params = {"neural_net":neuralnet,
@@ -117,17 +120,20 @@ train_params = {"neural_net":neuralnet,
                 # "pint_scheme":direct_root_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
+                "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
-                "integrator":dopri_integrator, 
+                # "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
-                "nb_processors":jax.local_device_count(), 
+                "nb_processors":nb_devices, 
                 "scheduler":1e-3,
                 "times":times,
+                "fixed_point_args":fixed_point_args,
                 "nb_epochs":20,
                 "batch_size":16,
                 "repeat_projection":3,
                 "nb_vectors":10,
+                "force_serial":False,
                 "key":key}
 
 
@@ -204,12 +210,12 @@ def accuracy_fn(y_pred, y):
 test_params = {"neural_net":dynamicnet,
                 "data":test_ds,
                 "basis":basis,
-                "pint_scheme":newton_root_finder,       ## If None then the fixed_point_ad_rule is used
+                "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
                 # "pint_scheme":direct_scheme,
-                "integrator":euler_integrator, 
+                "integrator":rk4_integrator, 
                 "acc_fn":accuracy_fn, 
                 "shooting_fn":shooting_fn,
-                "nb_processors":4, 
+                "nb_processors":nb_devices, 
                 "times":times,
                 "batch_size":8}
 
