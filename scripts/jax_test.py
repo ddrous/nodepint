@@ -1,8 +1,14 @@
 import numpy as np
-import jax.numpy as jnp
 import jax
+
+## Use jax cpu
+# jax.config.update("jax_platform_name", "cpu")
+
+import jax.numpy as jnp
 import time
 
+# import os
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'
 
 ## Some commands to quickly try stuff
 # sbatch scripts/jade.sh  # Submit the script to JADE
