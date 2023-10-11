@@ -37,6 +37,7 @@ def shooting_function_serial(Z, z0, nb_splits, times, rhs_params, static, integr
     Z_ = [z0]
     nz = z0.shape[0]
 
+    ## TODO (Maybe) parallel disguised as serial
     for n in range(nb_splits):      ## TODO do this in parallel   
         t0_ = t0 + (n+0)*(tf-t0)/nb_splits
         tf_ = t0 + (n+1)*(tf-t0)/nb_splits
@@ -45,8 +46,13 @@ def shooting_function_serial(Z, z0, nb_splits, times, rhs_params, static, integr
         # z_next = integrator(rhs, Z[n*nz:(n+1)*nz], t=t_)[-1,...]
         z_next = integrator(rhs_params, static, Z[n*nz:(n+1)*nz], t_, hmax)[-1,...]
         Z_.append(z_next)
+    Z_ = jnp.concatenate(Z_, axis=0)
 
-    return Z - jnp.concatenate(Z_, axis=0)
+    ## Actual parallel stuff
+    # t = np.linspace(t0, tf, N)
+    # Z_ = integrator(rhs_params, static, z0[None, ...], t, hmax)[-1,...]
+
+    return Z - Z_
 
 
 
@@ -70,7 +76,10 @@ def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, inte
     t_s = jnp.stack(t_s, axis=0)
     z0_s = jnp.stack(z0_s, axis=0)
 
-    devices = mesh_utils.create_device_mesh((nb_splits, 1))
+
+    nb_devices = jax.local_device_count()       ## Adding two-way parallelism with pmap
+
+    devices = mesh_utils.create_device_mesh((nb_devices, 1))
     shard = sharding.PositionalSharding(devices)
 
     ## Spread data accross devices and compute TODO can we avoid vmap! https://docs.kidger.site/equinox/examples/parallelism/

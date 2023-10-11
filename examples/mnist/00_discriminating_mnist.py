@@ -23,11 +23,11 @@ from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_fi
 from nodepint.projection import random_sampling, identity_sampling
 
 
-import os
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'    ## Trick to virtualise CPU for pmap
+# import os
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'    ## Trick to virtualise CPU for pmap
 print("Available devices:", jax.devices())
 
-nb_devices = jax.local_device_count()
+# nb_devices = jax.local_device_count()
 
 SEED = 27
 
@@ -125,7 +125,7 @@ train_params = {"neural_net":neuralnet,
                 # "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
-                "nb_processors":nb_devices, 
+                "nb_processors":8, 
                 "scheduler":1e-3,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
@@ -133,7 +133,7 @@ train_params = {"neural_net":neuralnet,
                 "batch_size":16,
                 "repeat_projection":3,
                 "nb_vectors":10,
-                "force_serial":False,
+                "force_serial":True,
                 "key":key}
 
 
@@ -215,7 +215,7 @@ test_params = {"neural_net":dynamicnet,
                 "integrator":rk4_integrator, 
                 "acc_fn":accuracy_fn, 
                 "shooting_fn":shooting_fn,
-                "nb_processors":nb_devices, 
+                "nb_processors":8, 
                 "times":times,
                 "batch_size":8}
 
