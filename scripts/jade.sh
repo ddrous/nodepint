@@ -26,6 +26,11 @@
 
 
 
+## Some commands to quickly try this on JADE
+# sbatch scripts/jade.sh  # Submit the script to JADE
+# sacct -u rrn27-wwp02    # Monitor my jobs
+
+
 #### run the application #####
 
 ## Load the tensorflow GPU container
