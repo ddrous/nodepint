@@ -23,9 +23,11 @@ from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_fi
 from nodepint.projection import random_sampling, identity_sampling
 
 
-# import os
+import os
 # os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'    ## Trick to virtualise CPU for pmap
 print("Available devices:", jax.devices())
+
+# os.environ['XLA_FLAGS'] = '--xla_gpu_force_compilation_parallelism=1'    ## For things to work on JADE (single-threaded compilation)
 
 # nb_devices = jax.local_device_count()
 
