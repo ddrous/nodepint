@@ -161,7 +161,7 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
     def cond_fun(carry):
         B_prev, B = carry
-        return jnp.linalg.norm(B_prev - B) > 1e-4
+        return jnp.linalg.norm(B_prev - B) > tol
 
     def body_fun(carry):
         _, B = carry
@@ -180,7 +180,7 @@ def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
     def cond_fun(carry):
         B_prev, B = carry
-        return jnp.linalg.norm(B_prev - B) > 1e-4       ## TODO Add a tolerance or a maxiter
+        return jnp.linalg.norm(B_prev - B) > tol       ## TODO Add a tolerance or a maxiter
 
     def body_fun(carry):
         _, B = carry
@@ -200,7 +200,7 @@ def fixed_point_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
     def cond_fun(carry):
         B_prev, B = carry
-        return jnp.linalg.norm(B_prev - B) > 1e-2
+        return jnp.linalg.norm(B_prev - B) > tol    ## TODO: Loops bounds https://github.com/google/jax/pull/13062 
 
     def body_fun(carry):
         _, B = carry

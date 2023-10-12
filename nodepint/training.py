@@ -53,8 +53,17 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
 
     print("Optimisation scheme is: ", optim_scheme.__name__)
     print("Integrator is: ", integrator.__name__)
-    print("Shooting function is: ", shooting_function.__name__)
-    print("Number of pint units: ", nb_processors)
+
+    if force_serial == False:
+        print("Shooting function is: ", shooting_function.__name__)
+        print("Total number of time intervals: ", nb_processors)
+        print("Number of JAX devices available:", len(jax.devices()))
+        print("Number of time intervals per device:", nb_processors//len(jax.devices()))
+    elif force_serial == "disguised_parallel":
+        print("Shooting function is: ", shooting_function.__name__)
+        print("Total number of time intervals: ", nb_processors)
+    else:
+        print("WARNING: you are running the integrator serialy")
 
     ## Setup features for later
     all_features = get_dataset_features(data)
@@ -199,7 +208,7 @@ def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proces
 
 
 
-def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_processors, times, integrator, acc_fn, batch_size):
+def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, acc_fn, batch_size):
 
     ## Partition the dynamic net into static and dynamic parts
     params, static = partition_dynamic_net(neural_net)
@@ -212,7 +221,7 @@ def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_proce
         x, y = batch[features[0]], batch[features[1]]
         x = x.reshape((x.shape[0], -1)) @ basis
 
-        acc_val = test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator)
+        acc_val = test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args)
 
         nb_batches += 1
         total_acc += acc_val
@@ -220,8 +229,8 @@ def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_proce
     return total_acc/nb_batches
 
 
-@partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator"))
-def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator):
+@partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "fixed_point_args"))
+def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args):
 
     neural_net = combine_dynamic_net(params, static)
 

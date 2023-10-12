@@ -73,7 +73,7 @@ ds = preprocess_mnist(ds, subset_size=32*2, seed=SEED, norm_factor=255.)
 # ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
 print("features", get_dataset_features(ds))
-print("num rows", ds.num_rows)
+print("Number of training examples", ds.num_rows)
 
 ## Visualise a datapoint
 np.random.seed(time.time_ns()%(2**32))
@@ -95,9 +95,9 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 101, 1e-4)       ## t0, tf, nb_times, hmax
+times = (0.0, 10.0, 201, 1e-2)       ## t0, tf, nb_times, hmax
 
-fixed_point_args = (1., 1e-6, 5)    ## learning_rate, tol, max_iter
+fixed_point_args = (1., 1e-2, 5)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
 loss = optax.softmax_cross_entropy
 
@@ -122,20 +122,20 @@ train_params = {"neural_net":neuralnet,
                 # "pint_scheme":direct_root_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                "integrator":rk4_integrator, 
+                # "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
-                # "integrator":dopri_integrator, 
+                "integrator":dopri_integrator, 
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
-                "nb_processors":8, 
+                "nb_processors":8,
                 "scheduler":1e-3,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
                 "nb_epochs":20,
-                "batch_size":16,
+                "batch_size":18,
                 "repeat_projection":3,
                 "nb_vectors":10,
-                "force_serial":True,
+                "force_serial":False,
                 "key":key}
 
 
@@ -199,7 +199,8 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="To
 
 ## Load the test dataset
 test_ds = load_jax_dataset(path="mnist", split="test")
-test_ds = preprocess_mnist(test_ds, subset_size=1280, seed=SEED, norm_factor=255.)
+test_ds = preprocess_mnist(test_ds, subset_size=16, seed=SEED, norm_factor=255.)
+print("\nNumber of testing examples", test_ds.num_rows)
 
 
 def accuracy_fn(y_pred, y):
@@ -214,10 +215,11 @@ test_params = {"neural_net":dynamicnet,
                 "basis":basis,
                 "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
                 # "pint_scheme":direct_scheme,
-                "integrator":rk4_integrator, 
-                "acc_fn":accuracy_fn, 
+                "integrator":rk4_integrator,
+                "fixed_point_args":fixed_point_args,
+                "acc_fn":accuracy_fn,
                 "shooting_fn":shooting_fn,
-                "nb_processors":8, 
+                "nb_processors":16,
                 "times":times,
                 "batch_size":8}
 
