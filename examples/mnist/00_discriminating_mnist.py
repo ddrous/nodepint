@@ -4,7 +4,7 @@ import time
 import jax
 
 ## Use jax cpu
-jax.config.update("jax_platform_name", "cpu")
+# jax.config.update("jax_platform_name", "cpu")
 
 import jax.numpy as jnp
 import numpy as np
@@ -13,7 +13,7 @@ import optax
 import matplotlib.pyplot as plt
 from functools import partial
 import datetime
-from flax.metrics import tensorboard
+# from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net

@@ -14,10 +14,10 @@ setup(
    install_requires=[
          "jax >= 0.3.4",
          "equinox >= 0.9.2",
-         "datasets[jax] >= 2.0.0",
+         "datasets[jax] >= 2.0.0",     ## install this with --no-deps
          "optax >= 0.1.1",
          "pytest",
          "seaborn",  ## The last two are optional
-         "pyvista[trame]",
+         # "pyvista[trame]",
    ],
 )
