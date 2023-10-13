@@ -72,7 +72,7 @@ ds = load_jax_dataset(path="mnist", split="train")
 ds = preprocess_mnist(ds, subset_size=32*2, seed=SEED, norm_factor=255.)
 # ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
-print("features", get_dataset_features(ds))
+print("Feature names:", get_dataset_features(ds))
 print("Number of training examples", ds.num_rows)
 
 ## Visualise a datapoint
@@ -95,7 +95,7 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 10.0, 201, 1e-2)       ## t0, tf, nb_times, hmax
+times = (0.0, 1.0, 1001, 1e-2)       ## t0, tf, nb_times, hmax
 
 fixed_point_args = (1., 1e-2, 5)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
@@ -118,13 +118,13 @@ key = get_new_keys(SEED)
 
 train_params = {"neural_net":neuralnet,
                 "data":ds,
-                "pint_scheme":fixed_point_finder,
-                # "pint_scheme":direct_root_finder,
+                # "pint_scheme":fixed_point_finder,
+                "pint_scheme":direct_root_finder,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                # "integrator":rk4_integrator, 
+                "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
-                "integrator":dopri_integrator, 
+                # "integrator":dopri_integrator,
                 "loss_fn":loss, 
                 "optim_scheme":optim_scheme, 
                 "nb_processors":8,
@@ -132,7 +132,7 @@ train_params = {"neural_net":neuralnet,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
                 "nb_epochs":20,
-                "batch_size":18,
+                "batch_size":8,
                 "repeat_projection":3,
                 "nb_vectors":10,
                 "force_serial":False,
@@ -197,42 +197,42 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="To
 
 #%% 
 
-## Load the test dataset
-test_ds = load_jax_dataset(path="mnist", split="test")
-test_ds = preprocess_mnist(test_ds, subset_size=16, seed=SEED, norm_factor=255.)
-print("\nNumber of testing examples", test_ds.num_rows)
+# ## Load the test dataset
+# test_ds = load_jax_dataset(path="mnist", split="test")
+# test_ds = preprocess_mnist(test_ds, subset_size=16, seed=SEED, norm_factor=255.)
+# print("\nNumber of testing examples", test_ds.num_rows)
 
 
-def accuracy_fn(y_pred, y):
-    y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
-    y = jnp.argmax(y, axis=-1)
+# def accuracy_fn(y_pred, y):
+#     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
+#     y = jnp.argmax(y, axis=-1)
 
-    return jnp.mean(y_pred == y, axis=-1)*100
-
-
-test_params = {"neural_net":dynamicnet,
-                "data":test_ds,
-                "basis":basis,
-                "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
-                # "pint_scheme":direct_scheme,
-                "integrator":rk4_integrator,
-                "fixed_point_args":fixed_point_args,
-                "acc_fn":accuracy_fn,
-                "shooting_fn":shooting_fn,
-                "nb_processors":16,
-                "times":times,
-                "batch_size":8}
+#     return jnp.mean(y_pred == y, axis=-1)*100
 
 
-start_time = time.time()
+# test_params = {"neural_net":dynamicnet,
+#                 "data":test_ds,
+#                 "basis":basis,
+#                 "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
+#                 # "pint_scheme":direct_scheme,
+#                 "integrator":rk4_integrator,
+#                 "fixed_point_args":fixed_point_args,
+#                 "acc_fn":accuracy_fn,
+#                 "shooting_fn":shooting_fn,
+#                 "nb_processors":16,
+#                 "times":times,
+#                 "batch_size":8}
 
-avg_acc = test_dynamic_net(**test_params)
 
-test_wall_time = time.time() - start_time
-time_in_hms= seconds_to_hours(test_wall_time)
+# start_time = time.time()
 
-print(f"\nAverage accuracy: {avg_acc:.2f} %")
-print("Test time: %d hours %d mins %d secs" %time_in_hms)
+# avg_acc = test_dynamic_net(**test_params)
+
+# test_wall_time = time.time() - start_time
+# time_in_hms= seconds_to_hours(test_wall_time)
+
+# print(f"\nAverage accuracy: {avg_acc:.2f} %")
+# print("Test time: %d hours %d mins %d secs" %time_in_hms)
 
 # #%% [markdown]
 # # ## Write stuff to tensorboard

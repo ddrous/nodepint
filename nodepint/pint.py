@@ -140,7 +140,8 @@ def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, inte
 #%%
 
 def newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
-    grad = jax.jacfwd(func)
+    # grad = jax.jacfwd(func)   ## TODO jax has a pb mixing fwd and rev
+    grad = jax.jacrev(func)
 
     # B = B0
     # for k in range(max_iter):       ## MAX_ITER is N (see Massaroli)
@@ -176,7 +177,8 @@ def newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
 
 def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
-    grad = jax.jacfwd(func)
+    # grad = jax.jacfwd(func)   ## TODO jax has a pb mixing fwd and rev
+    grad = jax.jacrev(func)
 
     def cond_fun(carry):
         B_prev, B = carry

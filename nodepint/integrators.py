@@ -31,7 +31,7 @@ def dopri_integrator(rhs_params, static, y0, t, hmax):      ## Inverts the order
     
     rhs = lambda y, t: eqx.combine(rhs_params, static)(y, t)
 
-    return odeint(rhs, y0, t, rtol=1e-6, atol=1e-6, mxstep=1000, hmax=hmax)
+    return odeint(rhs, y0, t, rtol=1e-4, atol=1e-4, mxstep=100, hmax=hmax)
 
 # ## Simple Euler integrator
 # def euler_step(rhs, y, t, dt):
