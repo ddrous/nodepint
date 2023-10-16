@@ -3,6 +3,7 @@
 
 import jax
 import jax.numpy as jnp
+import equinox as eqx
 
 import jax.experimental.mesh_utils as mesh_utils
 import jax.sharding as sharding
@@ -262,6 +263,105 @@ def parareal(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_r
 
 #   k, X, F = lax.while_loop(cond_fun, body_fun, (k + 1, X, F))
 #   return X[(k - 1) % m]
+
+
+
+
+
+
+
+
+
+
+def direct_root_finder_augmented(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
+
+    nz = z0.shape[0]
+    rhs = eqx.combine(rhs_params, static)
+
+    grad_U = jax.jacrev(rhs, argnums=0)
+
+    def aug_rhs(y, t):
+        U = y[:nz]
+        V = y[nz:].reshape((nz, nz))
+
+        # _, vjp_U = jax.vjp(lambda y: rhs(t, y), U)
+        # V_bar = vjp_U(V)[0]
+
+        V_bar = grad_U(U, t) @ V
+
+        return jnp.concatenate([rhs(U, t), V_bar.flatten()], axis=0)
+
+
+    t0, tf, N = times[:3]
+    hmax = times[3] if len(times)>3 else 1e-2
+    N_ = N//nb_splits + 1
+    nz = z0.shape[0]
+    UV0 = jnp.concatenate([z0, jnp.diag(jnp.ones_like(z0)).flatten()], axis=0)
+
+    t_s = []
+    for n in range(nb_splits):
+        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+        t_ = np.linspace(t0_, tf_, N_)
+
+        t_s.append(t_)
+
+    t_s = jnp.stack(t_s, axis=0)
+
+    nb_devices = jax.local_device_count()
+    devices = mesh_utils.create_device_mesh((nb_devices, 1))
+    shard = sharding.PositionalSharding(devices)
+
+    t_s = jax.device_put((t_s), shard)
+
+
+    def cond_fun(carry):
+        U_prev, U = carry
+        return jnp.linalg.norm(U_prev - U) > tol       ## TODO Add a tolerance or a maxiter
+
+    def body_fun(carry):
+        _, U = carry
+        # V = jnp.diag(jnp.ones_like(U))
+
+        UV0_s = []
+        for n in range(nb_splits):
+            U0_ = U[n, :]
+            V0_ = jnp.diag(jnp.ones_like(U0_))
+            UV0_s.append(jnp.concatenate([U0_, V0_.flatten()], axis=0))
+        UV0_s = jnp.stack(UV0_s, axis=0)
+
+        UV0_s = jax.device_put((UV0_s), shard)
+        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)
+
+        UVf = jnp.concatenate([UV0[None, ...], UVf[:, -1, ...]], axis=0)
+
+        ## Main iteration loop for constructing U(k+1)
+        U_next = UVf[:,:nz]
+        for n in range(1, nb_splits):
+            U_prev = U_next[n-1,:]
+            U_prevprev = U[n-1, :]
+            V_prev = UVf[n, nz:].reshape((nz, nz))
+
+            U_next = U_next.at[n,:].add(V_prev @ (U_prev - U_prevprev))
+
+        return U, U_next
+
+    ## TODO carefull, "func" is no more used. it would be a shame if its impact was too big 
+    B0 = B0.flatten()
+    B1 = -B0 + func(B0, z0, nb_splits, times, rhs_params, static, integrator)
+    _, U_star = jax.lax.while_loop(cond_fun, body_fun, (B0.reshape(nb_splits+1, nz), B1.reshape(nb_splits+1, nz)))
+
+    return U_star.flatten()
+
+
+
+
+
+
+
+
+
+
 
 
 

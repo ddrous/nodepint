@@ -19,7 +19,7 @@ from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
-from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder
+from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_augmented
 from nodepint.projection import random_sampling, identity_sampling
 
 
@@ -95,9 +95,9 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 1001, 1e-2)       ## t0, tf, nb_times, hmax
+times = (0.0, 1.0, 1001, 1e-3)       ## t0, tf, nb_times, hmax
 
-fixed_point_args = (1., 1e-2, 5)    ## learning_rate, tol, max_iter TODO max_iter still not used
+fixed_point_args = (1., 1e-6, 5)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
 loss = optax.softmax_cross_entropy
 
@@ -119,13 +119,13 @@ key = get_new_keys(SEED)
 train_params = {"neural_net":neuralnet,
                 "data":ds,
                 # "pint_scheme":fixed_point_finder,
-                "pint_scheme":direct_root_finder,
+                "pint_scheme":direct_root_finder_augmented,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
                 "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
                 # "integrator":dopri_integrator,
-                "loss_fn":loss, 
+                "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
                 "nb_processors":8,
                 "scheduler":1e-3,

@@ -3,7 +3,6 @@
 
 import jax
 import jax.numpy as jnp
-from jax import lax
 from jax.experimental.ode import odeint
 
 import numpy as np
@@ -71,7 +70,7 @@ def euler_integrator(rhs_params, static, y0, t, hmax):
     dt = jnp.minimum(t - t_prev, hmax)
     y = y_prev + dt * rhs(y_prev, t_prev)
     return (y, t), y
-  _, ys = lax.scan(step, (y0, t[0]), t[1:])
+  _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
   return ys
 
 
@@ -87,7 +86,7 @@ def rk4_integrator(rhs_params, static, y0, t, hmax):
     k4 = h * rhs(y_prev + k3, t + h)
     y = y_prev + 1./6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return (y, t), y
-  _, ys = lax.scan(step, (y0, t[0]), t[1:])
+  _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
   return ys
 
 ## RBF integrator (TODO Implement this from Updec)

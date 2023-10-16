@@ -43,7 +43,7 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     ## TODO use many projections per-data points. The Pint scheme can be any root finder, or parareal
     if isinstance(pint_scheme, str):
         pint_scheme = select_root_finding_function(pint_scheme)
-    # print("Time-parallel function name: ", pint_scheme.__name__)
+    print("Root-finding strategy name: ", pint_scheme.__name__)
 
     ## To force time intervals to be computed in a for look
     if force_serial == "disguised_parallel":    ## TODO Make this better
@@ -175,7 +175,7 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
 def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial):
     neural_net = combine_dynamic_net(params, static)
 
-    sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
+    sht_init = jnp.zeros((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
     lr, tol, max_iter = fixed_point_args
 
     if force_serial == False:
