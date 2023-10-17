@@ -8,6 +8,8 @@ from jax.experimental.ode import odeint
 import numpy as np
 import equinox as eqx
 
+from functools import partial
+
 ## The interface of each integrator is:
 # - the function func,
 # - the input vector, 
@@ -18,68 +20,39 @@ import equinox as eqx
 
 
 ## The default Jax differentiable integrator
-# dopri_integrator = jax.jit(odeint, static_argnums=(0))
-# dopri_integrator = odeint
 
+
+# @partial(jax.jit, static_argnums=(0, 1))
 def dopri_integrator(rhs_params, static, y0, t, hmax):      ## Inverts the order of t and y0 passed to func
-    # print("Yo shape is: ", y0.shape)
-    # print("rhs shapes:", rhs)
 
-    # def rhs(y, t):
-    #     return eqx.combine(rhs_params, static)(y, t)
-    
     rhs = lambda y, t: eqx.combine(rhs_params, static)(y, t)
+    rhs = jax.jit(rhs)
 
     return odeint(rhs, y0, t, rtol=1e-4, atol=1e-4, mxstep=100, hmax=hmax)
 
-# ## Simple Euler integrator
-# def euler_step(rhs, y, t, dt):
-#     ret = y+rhs(y, t)*dt, t+dt
-#     return ret
 
-# # @partial(jax.jit, static_argnums=(0, 2, 3))
-# def euler_integrator(rhs_params, static, y0, t, hmax=1e-2):
-
-#     rhs = eqx.combine(rhs_params, static)
-
-#     # t = np.array(t)
-#     # dt = jnp.min(jnp.minimum(jnp.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
-#     dt = np.min(np.minimum(np.ones_like(t[1:])*hmax, t[1:] - t[:-1]))
-#     nb_iter = int((t[-1] - t[0]) / dt)
-
-#     def body_func(i, yt):       ## TODO this is sooo not functional
-#         newy, newt = euler_step(rhs, yt[i-1, 1:], yt[i-1, 0, jnp.newaxis], dt)
-#         yt = yt.at[i, 0].set(newt[0])
-#         yt = yt.at[i, 1:].set(newy)
-#         return yt
-
-#     yt = jnp.zeros((nb_iter, y0.shape[0]+1))
-#     yt = yt.at[0, 0].set(t[0])
-#     yt = yt.at[0, 1:].set(y0)
-
-#     yt = jax.lax.fori_loop(1, nb_iter, body_func, yt)
-
-#     return yt[:, 1:] 
-
-
-## Inspired by http://implicit-layers-tutorial.org/implicit_functions/
+@partial(jax.jit, static_argnums=(0, 1))
 def euler_integrator(rhs_params, static, y0, t, hmax):
+  """hmax is never used, but is here for compatibility with other integrators """
+
   rhs = eqx.combine(rhs_params, static)
+
   def step(state, t):
     y_prev, t_prev = state
-    dt = jnp.minimum(t - t_prev, hmax)
+    dt = t - t_prev
     y = y_prev + dt * rhs(y_prev, t_prev)
     return (y, t), y
   _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
-  return ys
+  # return ys
+  return jnp.concatenate([y0[jnp.newaxis, :], ys], axis=0)
 
 
-
+@partial(jax.jit, static_argnums=(0, 1))
 def rk4_integrator(rhs_params, static, y0, t, hmax):
   rhs = eqx.combine(rhs_params, static)
   def step(state, t):
     y_prev, t_prev = state
-    h = jnp.minimum(t - t_prev, hmax)
+    h = t - t_prev
     k1 = h * rhs(y_prev, t_prev)
     k2 = h * rhs(y_prev + k1/2., t_prev + h/2.)
     k3 = h * rhs(y_prev + k2/2., t_prev + h/2.)
@@ -87,7 +60,9 @@ def rk4_integrator(rhs_params, static, y0, t, hmax):
     y = y_prev + 1./6 * (k1 + 2 * k2 + 2 * k3 + k4)
     return (y, t), y
   _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
-  return ys
+  # return ys
+  return jnp.concatenate([y0[jnp.newaxis, :], ys], axis=0)
+
 
 ## RBF integrator (TODO Implement this from Updec)
 
