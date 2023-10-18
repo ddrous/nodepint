@@ -224,26 +224,17 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
 
     nz = z0.shape[0]
     rhs = eqx.combine(rhs_params, static)
-
     grad_U = jax.jacrev(rhs, argnums=0)
 
     def aug_rhs(y, t):
         U = y[:nz]
         V = y[nz:].reshape((nz, nz))
-
-        # _, vjp_U = jax.vjp(lambda y: rhs(t, y), U)
-        # V_bar = vjp_U(V)[0]
-
         V_bar = grad_U(U, t) @ V
-
         return jnp.concatenate([rhs(U, t), V_bar.flatten()], axis=0)
-
 
     t0, tf, N = times[:3]
     hmax = times[3] if len(times)>3 else 1e-2
     N_ = N//nb_splits + 1
-    nz = z0.shape[0]
-    UV0 = jnp.concatenate([z0, jnp.diag(jnp.ones_like(z0)).flatten()], axis=0)
 
     nb_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((nb_devices, 1))
@@ -256,69 +247,41 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     t_s = jax.device_put((t_s), shard)
 
     def cond_fun(carry):
-        U_prev, U = carry
-        return jnp.linalg.norm(U_prev - U) > tol       ## TODO Add a tolerance or a maxiter
+        _, _, errors, k = carry
+        return (errors[k] > tol) & (k<max_iter)
 
     def body_fun(carry):
-        _, U = carry
-        # V = jnp.diag(jnp.ones_like(U))
-
-        # UV0_s = []
-        # for n in range(nb_splits):
-        #     U0_ = U[n, :]
-        #     V0_ = jnp.diag(jnp.ones_like(U0_))
-        #     UV0_s.append(jnp.concatenate([U0_, V0_.flatten()], axis=0))
-        # UV0_s = jnp.stack(UV0_s, axis=0)
-
+        _, U, errors, k = carry
+  
         V = jnp.broadcast_to(jnp.diag(jnp.ones(nz)).flatten(), (nb_splits, nz*nz))
         UV0_s = jnp.concatenate([U[:-1,:], V], axis=1)
 
         UV0_s = jax.device_put((UV0_s), shard)
-        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)
-
-        UVf = jnp.concatenate([UV0[None, ...], UVf[:, -1, ...]], axis=0)    ## TODO no need to concat now
-
-        # ## Main iteration loop for constructing U(k+1)
-        # U_next = UVf[:,:nz]
-        # for n in range(1, nb_splits):
-        #     U_prev = U_next[n-1,:]
-        #     U_prevprev = U[n-1, :]
-        #     V_prev = UVf[n, nz:].reshape((nz, nz))
-
-        #     U_next = U_next.at[n,:].add(V_prev @ (U_prev - U_prevprev))
-
+        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)[:, -1, ...]
 
         def step(U_kp1_n, n):
-            V_prev = UVf[n, nz:].reshape((nz, nz))
-            U_kp1_np1 = UVf[n, :nz] + V_prev@(U_kp1_n - U[n-1, :])
+            V_prev = UVf[n-1, nz:].reshape((nz, nz))
+            U_kp1_np1 = UVf[n-1, :nz] + V_prev@(U_kp1_n - U[n-1, :])
             return (U_kp1_np1), U_kp1_np1
 
-        _, U_next = jax.lax.scan(step, (UVf[0, :nz]), n_s+1)
+        _, U_next = jax.lax.scan(step, (z0), n_s+1)
 
         U_next = jnp.concatenate([z0[None, :], U_next[:, :]], axis=0)
+        errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
 
-        return U, U_next
+        return U, U_next, errors, k+1
 
-    ## TODO carefull, "func" is no more used. it would be a shame if its impact was too big 
-    # B0 = B0.flatten()
-    # B1 = -B0 + func(B0, z0, nb_splits, times, rhs_params, static, integrator)
-    # _, U_star = jax.lax.while_loop(cond_fun, body_fun, (B0.reshape(nb_splits+1, nz), B1.reshape(nb_splits+1, nz)))
+    errors = jnp.inf * jnp.ones((max_iter+1,))
+    errors = errors.at[0].set(2*tol)
 
-    _, U_star = jax.lax.while_loop(cond_fun, body_fun, (B0*2*tol, B0))
+    _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
 
-
-    return U_star.flatten()
+    return U_star.flatten(), errors[1:], nb_iters
 
 
-
-def sequential_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter):
-    pass
 
 
 def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
-
-    nz = z0.shape[0]
-    rhs = eqx.combine(rhs_params, static)
 
     coarse_integrator = euler_integrator
     fine_integrator = integrator
@@ -326,72 +289,54 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
     t0, tf, N = times[:3]
     hmax = times[3] if len(times)>3 else 1e-2
     N_ = N//nb_splits + 1
-    nz = z0.shape[0]
 
     nb_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((nb_devices, 1))
     shard = sharding.PositionalSharding(devices)
 
-    # t_s = []
-    # for n in range(nb_splits):
-    #     t0_ = t0 + (n+0)*(tf-t0)/nb_splits
-    #     tf_ = t0 + (n+1)*(tf-t0)/nb_splits
-    #     t_ = np.linspace(t0_, tf_, N_)
-    #     t_s.append(t_)
-    # t_s = jnp.stack(t_s, axis=0)
-    # t_s = jax.device_put((t_s), shard)
-
-    n_s = np.arange(nb_splits)
+    n_s = jnp.arange(nb_splits)
     t0_s = t0 + n_s*(tf-t0)/nb_splits
     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
     t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
     t_s_pr = jax.device_put((t_s), shard)
 
-    # t_s_pr.visualize_array_sharding()
-
     def cond_fun(carry):
-        U_prev, U = carry
-        return jnp.linalg.norm(U_prev - U) > tol
+        _, _, errors, k = carry
+        return (errors[k] > tol) & (k<max_iter)
 
     def body_fun(carry):
-        _, U = carry
+        _, U, errors, k = carry
 
         U_pr = jax.device_put((U[:-1, :]), shard)
-        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, hmax)
-        Uf = jnp.concatenate([z0[None, ...], Uf[:, -1, ...]], axis=0)
+        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, hmax)[:, -1, ...]
 
-        ## This is serial (or can i make it parallel as well? TODO)
-        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
-
-        # ## Main iteration loop for constructing U(k+1)
-        # U_next = Uf[:,:nz]
-        # for n in range(1, nb_splits):
-        #     U_prev = coarse_integrator(rhs_params, static, U_next[n-1,:], t_s[n], np.inf)[-1, :]
-        #     U_prevprev = coarse_integrator(rhs_params, static, U[n-1,:], t_s[n], np.inf)[-1, :]
-        #     U_next = U_next.at[n,:].add(U_prev - U_prevprev)
+        # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
+        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, np.inf)[:, -1, :]
 
         def step(U_kp1_n, n):
             U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], np.inf)[-1, :]
-            U_kp1_np1 = Uf[n, :] + U_prev_n - U_prevprev[n-1, :]
+            U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
             return (U_kp1_np1), U_kp1_np1
 
-        _, U_next = jax.lax.scan(step, (Uf[0, :]), n_s+1)
+        _, U_next = jax.lax.scan(step, (z0[:]), n_s+1)
 
         U_next = jnp.concatenate([z0[None, :], U_next[:, :]], axis=0)
+        errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
 
-        return U, U_next
+        ### TODO Atempt to avoid update U_km1
+        # _, U_next = jax.lax.scan(step, (Uf[k, :]), n_s[k:]+1)
+        # U_sol = jnp.concatenate([U[:k, :], U_next[:, :]], axis=0)
+        # errors = errors.at[k+1].set(jnp.linalg.norm(U_sol - U))
+        # return U, U_sol, errors, k+1
 
-    ## TODO carefull, "func" is no more used. it would be a shame if its impact was too big 
-    B0 = B0
-    t_init = jnp.linspace(t0, tf, nb_splits+1)
-    t_init = increase_timespan(t_init, 10)
-    B1 = coarse_integrator(rhs_params, static, z0, t_init, np.inf)[::10]
+        return U, U_next, errors, k+1
 
-    _, U_star = jax.lax.while_loop(cond_fun, body_fun, (B0*2*tol, B0))
+    errors = jnp.inf * jnp.ones((max_iter+1,))
+    errors = errors.at[0].set(2*tol)
 
-    return U_star.flatten()
+    _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
 
-
+    return U_star.flatten(), errors[1:], nb_iters
 
 
 

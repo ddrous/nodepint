@@ -26,9 +26,10 @@ fine_integrator = dopri_integrator
 # fine_integrator = euler_integrator
 func = shooting_function_serial
 
-N = 200 ## nb_processors
-lr, tol, max_iter = 1., 1e-2, 9
-tf = 2.5
+N = 800 ## nb_processors
+lr, tol, max_iters = 1., 1e-6, 20
+tf = 5.5
+# tf = 5.5
 times = (0.0, tf, 10001, 1e-4)
 
 z0 = jnp.array([20., 5., -5.])
@@ -36,15 +37,23 @@ z0 = jnp.array([20., 5., -5.])
 B0 = jnp.zeros((N+1, 3)).flatten()
 t_init = jnp.linspace(times[0], times[1], N+1)
 
-factor = 15
+factor = 25
 t_init = increase_timespan(t_init, factor)
 B0 = euler_integrator(rhs_params, static, z0, t_init, np.inf)[::factor]
 
-%time sol = direct_root_finder_aug(func, B0, z0, N, times, rhs_params, static, fine_integrator, lr, tol, max_iter)
-# %time sol = parareal(func, B0, z0, N, times, rhs_params, static, fine_integrator, lr, tol, max_iter)
+%time sol, errors, iters = direct_root_finder_aug(func, B0, z0, N, times, rhs_params, static, fine_integrator, lr, tol, max_iters)
+# %time sol, errors, iters = parareal(func, B0, z0, N, times, rhs_params, static, fine_integrator, lr, tol, max_iters)
+
+print("Number of iterations:", iters)
+print("Errors:", errors)
+
+## Plot the errors
+sbplot(jnp.arange(max_iters), errors, "o-", y_scale="log", x_label="Iteration", y_label="Error", title="Parallel-in-Time Errors");
 
 sol = sol.reshape((N+1, 3))
 sol
+
+
 
 
 # %%
@@ -81,3 +90,5 @@ ax.set_title("Lorenz Attractor");
 ## Lessons learned:
 # - Use parareal for long time horizons, but be ready for slow convergence
 # - Use direct root finder for short time horizons, and make sure the initial guess is good enough
+
+# %%
