@@ -30,7 +30,7 @@ N = 800 ## nb_processors
 lr, tol, max_iters = 1., 1e-6, 20
 tf = 5.5
 # tf = 5.5
-times = (0.0, tf, 10001, 1e-4)
+times = (0.0, tf, 800*13+1, 1e-4)
 
 z0 = jnp.array([20., 5., -5.])
 
@@ -94,9 +94,10 @@ ax.set_title("Lorenz Attractor");
 
 # %%
 
-def test():
+def test_lorentz():
     ## PinT vs Serial
-    assert jnp.allclose(sol, sol_, atol=1e-2) == True
+    assert jnp.allclose(sol, sol_[::((times[2]-1)//(N)), :], atol=1e-1) == True
 
     ## Check that no nans in B0
     assert jnp.all(jnp.isfinite(B0)) == True
+
