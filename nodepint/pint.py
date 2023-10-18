@@ -244,7 +244,7 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     t0_s = t0 + n_s*(tf-t0)/nb_splits
     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
     t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
-    t_s = jax.device_put((t_s), shard)
+    t_s = jax.device_put(t_s, shard)
 
     def cond_fun(carry):
         _, _, errors, k = carry
@@ -255,8 +255,8 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
   
         V = jnp.broadcast_to(jnp.diag(jnp.ones(nz)).flatten(), (nb_splits, nz*nz))
         UV0_s = jnp.concatenate([U[:-1,:], V], axis=1)
-
         UV0_s = jax.device_put((UV0_s), shard)
+
         UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)[:, -1, ...]
 
         def step(U_kp1_n, n):
@@ -276,7 +276,8 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
 
     _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
 
-    return U_star.flatten(), errors[1:], nb_iters
+    return U_star, errors[1:], nb_iters
+    # return U_star[1:,...], errors[1:], nb_iters         ## TODO small fix for Multi-GPU
 
 
 
@@ -336,7 +337,7 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
 
     _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
 
-    return U_star.flatten(), errors[1:], nb_iters
+    return U_star, errors[1:], nb_iters
 
 
 

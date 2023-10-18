@@ -24,3 +24,6 @@ nodepint/__pycache__/*
 # For Isambard
 *.pbs*
 !scripts/isambard.pbs
+
+# Artifacts of testing
+nodepint/tests/data/*
