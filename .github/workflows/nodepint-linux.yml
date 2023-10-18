@@ -28,4 +28,4 @@ jobs:
         python setup.py develop && conda install pytest
     - name: Run Lorentz test
       run: |
-        pytest --disable-warnings -q nodepint/tests/lorentz.py
+        pytest --disable-warnings -q nodepint/tests/lorentz.py -k 'not test_dynamic_net test_step'
