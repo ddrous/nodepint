@@ -26,11 +26,11 @@ fine_integrator = dopri_integrator
 # fine_integrator = euler_integrator
 func = shooting_function_serial
 
-N = 80 ## nb_processors
+N = 800 ## nb_processors
 lr, tol, max_iters = 1., 1e-6, 20
 tf = 5.5
 # tf = 5.5
-times = (0.0, tf, 1001, 1e-4)
+times = (0.0, tf, 10001, 1e-4)
 
 z0 = jnp.array([20., 5., -5.])
 
@@ -48,12 +48,11 @@ print("Number of iterations:", iters)
 print("Errors:", errors)
 
 ## Plot the errors
-sbplot(jnp.arange(max_iters), errors, "o-", y_scale="log", x_label="Iteration", y_label="Error", title="Parallel-in-Time Errors");
-# sol = sol.reshape((N+1, 3))
+# sbplot(jnp.arange(max_iters), errors, "o-", y_scale="log", x_label="Iteration", y_label="Error", title="Parallel-in-Time Errors");
 
 # jax.debug.visualize_array_sharding(sol)
 sol
-print(jax.device_get(sol))      ## Transfer the solution to the CPU
+# print(jax.device_get(sol))      ## Transfer the solution to the CPU
 
 
 
@@ -85,7 +84,7 @@ ax.set_zlabel("Z")
 ax.set_title("Lorenz Attractor");
 
 ## Save this figure to data/lorentz.png
-plt.savefig("data/lorentz.png", dpi=100)
+# plt.savefig("data/lorentz.png", dpi=100)
 
 # %%
 
@@ -94,3 +93,10 @@ plt.savefig("data/lorentz.png", dpi=100)
 # - Use direct root finder for short time horizons, and make sure the initial guess is good enough
 
 # %%
+
+def test():
+    ## PinT vs Serial
+    assert jnp.allclose(sol, sol_, atol=1e-2) == True
+
+    ## Check that no nans in B0
+    assert jnp.all(jnp.isfinite(B0)) == True
