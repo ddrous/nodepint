@@ -11,6 +11,7 @@ pintode.egg-info/*
 *vtk
 quadqs_statistics.json
 
+nodepint.egg-info
 nodepint.egg-info/*
 nodepint/__pycache__/*
 
