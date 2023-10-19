@@ -31,12 +31,10 @@ def dopri_integrator(rhs_params, static, y0, t, hmax):      ## Inverts the order
     return odeint(rhs, y0, t, rtol=1e-4, atol=1e-4, mxstep=100, hmax=hmax)
 
 
-@partial(jax.jit, static_argnums=(0, 1))
+# @partial(jax.jit, static_argnums=(0, 1))
 def euler_integrator(rhs_params, static, y0, t, hmax):
   """hmax is never used, but is here for compatibility with other integrators """
-
   rhs = eqx.combine(rhs_params, static)
-
   def step(state, t):
     y_prev, t_prev = state
     dt = t - t_prev

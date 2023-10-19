@@ -20,8 +20,8 @@ def select_root_finding_function(pint_scheme:str):
         root_finder = newton_root_finder
     elif pint_scheme=="direct":
         root_finder = direct_root_finder       ## Use partial if necessary
-    elif pint_scheme=="sequential":
-        root_finder = sequential_root_finder
+    elif pint_scheme=="direct_aug":
+        root_finder = direct_root_finder_aug
     else:
         raise ValueError("Unknown time-parallel scheme")
 
@@ -64,33 +64,32 @@ def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, inte
     t0, tf, N = times[:3]
     hmax = times[3] if len(times)>3 else 1e-2
     N_ = N//nb_splits + 1
-    nz = z0.shape[0]
 
-    t_s = []
-    z0_s = []
-    for n in range(nb_splits):
-        t0_ = t0 + (n+0)*(tf-t0)/nb_splits
-        tf_ = t0 + (n+1)*(tf-t0)/nb_splits
-        t_ = np.linspace(t0_, tf_, N_)
+    # nz = z0.shape[0]
+    # t_s = []
+    # z0_s = []
+    # for n in range(nb_splits):
+    #     t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+    #     tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+    #     t_ = np.linspace(t0_, tf_, N_)
 
-        t_s.append(t_)
-        z0_s.append(Z[n*nz:(n+1)*nz])
+    #     t_s.append(t_)
+    #     z0_s.append(Z[n*nz:(n+1)*nz])
     
-    t_s = jnp.stack(t_s, axis=0)
-    z0_s = jnp.stack(z0_s, axis=0)
-
-
-    nb_devices = jax.local_device_count()       ## Adding two-way parallelism with pmap
-
+    nb_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((nb_devices, 1))
     shard = sharding.PositionalSharding(devices)
 
-    ## Spread data accross devices and compute TODO can we avoid vmap! https://docs.kidger.site/equinox/examples/parallelism/
-    z0_s, t_s = jax.device_put((z0_s, t_s), shard)
+    n_s = jnp.arange(nb_splits)
+    t0_s = t0 + n_s*(tf-t0)/nb_splits
+    tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
+    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+
+    z0_s, t_s = jax.device_put((Z[:-1, :], t_s), shard)
     Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, hmax)
 
     ## Only keep the last value per device, plus z0
-    Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0).flatten()
+    Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0)
 
     return Z - Z_next
 
@@ -425,9 +424,9 @@ def fixed_point_ad(func, B0, z0, nb_splits, times, rhs, static, integrator, pint
 
     # _, B_star = jax.lax.while_loop(cond_fun, body_fun, (B0, fp_func(B0, z0, nb_splits, times, rhs, static, integrator)))
 
-    B_star = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+    B_star, errors, nb_iters = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
-    return B_star
+    return B_star, errors, nb_iters
 
 
 def fixed_point_ad_fwd(func, B0, z0, nb_splits, times, rhs, static, integrator, pint_scheme, learning_rate, tol, max_iter):
@@ -437,9 +436,9 @@ def fixed_point_ad_fwd(func, B0, z0, nb_splits, times, rhs, static, integrator, 
     # B_star = direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
     # B_star = newton_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
-    B_star = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
+    B_star, errors, nb_iters = pint_scheme(func, B0, z0, nb_splits, times, rhs, static, integrator, learning_rate, tol, max_iter)
 
-    return B_star, (B_star, z0, rhs)
+    return (B_star, errors, nb_iters), (B_star, z0, rhs)
 
 
 def inner_fixed_point_ad(func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter):
@@ -466,7 +465,7 @@ def fixed_point_ad_bwd(func, nb_splits, times, static, integrator, pint_scheme, 
 
     _, vjp_theta = jax.vjp(lambda theta: fp_func(B_star, z0, nb_splits, times, theta, static, integrator), rhs)
 
-    w = inner_fixed_point_ad(fp_func, B_star, z0, nb_splits, times, rhs, static, integrator, v, learning_rate, tol, max_iter)
+    w = inner_fixed_point_ad(fp_func, B_star, z0, nb_splits, times, rhs, static, integrator, v[0], learning_rate, tol, max_iter)
 
     theta_bar, = vjp_theta(w)
 

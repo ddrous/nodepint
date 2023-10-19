@@ -19,7 +19,7 @@ from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_parallel_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
-from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_augmented
+from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_aug, parareal
 from nodepint.projection import random_sampling, identity_sampling
 
 
@@ -95,9 +95,9 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 1001, 1e-3)       ## t0, tf, nb_times, hmax
+times = (0.0, 1.0, 10001, 1e-3)       ## t0, tf, nb_times, hmax
 
-fixed_point_args = (1., 1e-6, 5)    ## learning_rate, tol, max_iter TODO max_iter still not used
+fixed_point_args = (1., 1e-6, 10)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
 loss = optax.softmax_cross_entropy
 
@@ -119,22 +119,22 @@ key = get_new_keys(SEED)
 train_params = {"neural_net":neuralnet,
                 "data":ds,
                 # "pint_scheme":fixed_point_finder,
-                "pint_scheme":direct_root_finder_augmented,
+                "pint_scheme":parareal,
                 "proj_scheme":random_sampling,
                 # "proj_scheme":identity_sampling,
-                "integrator":rk4_integrator, 
-                # "integrator":euler_integrator, 
+                # "integrator":rk4_integrator, 
+                "integrator":euler_integrator, 
                 # "integrator":dopri_integrator,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
-                "nb_processors":8,
+                "nb_processors":80,
                 "scheduler":1e-3,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
                 "nb_epochs":20,
                 "batch_size":8,
-                "repeat_projection":3,
-                "nb_vectors":10,
+                "repeat_projection":2,
+                "nb_vectors":5,
                 "force_serial":False,
                 "key":key}
 
@@ -148,10 +148,14 @@ train_params = {"neural_net":neuralnet,
 start_time = time.time()
 cpu_start_time = time.process_time()
 
-dynamicnet, basis, shooting_fn, loss_hts = train_parallel_neural_ode(**train_params)
+dynamicnet, basis, shooting_fn, loss_hts, errors_hts, nb_iters_hts = train_parallel_neural_ode(**train_params)
 
 clock_time = time.process_time() - cpu_start_time
 wall_time = time.time() - start_time
+
+print("\nNumber of iterations till PinT eventual convergence:\n", np.asarray(nb_iters_hts))
+print("Errors during PinT iterations:\n", np.asarray(errors_hts))
+
 
 time_in_hmsecs = seconds_to_hours(wall_time)
 print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)

@@ -16,7 +16,8 @@ from .neuralnets import (DynamicNet,
 from .pint import select_root_finding_function, fixed_point_ad, shooting_function_serial, shooting_function_parallel
 from .projection import select_projection_scheme
 from .data import get_dataset_features
-from .utils import get_new_keys
+from .utils import get_new_keys, increase_timespan
+from .integrators import euler_integrator
 
 
 
@@ -78,7 +79,8 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
 
     basis = None    ## Initialise the basis
     loss_hts = []    ## Initialise the loss history
-
+    errors_hts = []
+    nb_iters_hts = []
     for p in range(repeat_projection):
 
         vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
@@ -101,11 +103,13 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
         print("Adding neurons to dynamic net's layers, done !")
 
         ## Find the solution to that ODE using PinT and backpropagate
-        dynamic_net, loss_ht = train_dynamic_net(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial)
+        dynamic_net, loss_ht, errors, nb_iters = train_dynamic_net(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial)
 
         loss_hts.append(loss_ht)
+        errors_hts.append(errors)
+        nb_iters_hts.append(nb_iters)
 
-    return dynamic_net, basis, shooting_function, loss_hts
+    return dynamic_net, basis, shooting_function, loss_hts, errors_hts, nb_iters_hts
 
 
 def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial):
@@ -123,6 +127,8 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
     # batch_size = 1
 
     loss_ht = []
+    errors = []
+    nb_iters = []
     for epoch in range(nb_epochs):
 
         loss_eph = 0
@@ -135,7 +141,10 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
             x, y = batch[features[0]], batch[features[1]]
             x = x.reshape((x.shape[0], -1)) @ basis
 
-            params, optstate, loss_val = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
+            params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
+
+            errors.append(aux_data[0])      ## TODO return something meaningfull per epoch
+            nb_iters.append(aux_data[1])
 
             loss_eph += jnp.sum(loss_val)
             nb_batches += 1
@@ -148,19 +157,19 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
         loss_ht.append(loss_eph)
 
     neural_net = combine_dynamic_net(params, static)
-    return neural_net, jnp.array(loss_ht)
+    return neural_net, jnp.array(loss_ht), errors, nb_iters
 
 
 
 @partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser", "fixed_point_args", "force_serial"))
 def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial):
 
-    loss_val, grad = jax.value_and_grad(node_loss)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial)
+    (loss_val, aux_data), grad = jax.value_and_grad(node_loss, has_aux=True)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial)
 
     updates, optstate = optimiser.update(grad, optstate, params)
     params = optax.apply_updates(params, updates)
 
-    return params, optstate, loss_val
+    return params, optstate, loss_val, aux_data
 
 
 # from nodepint.pint import newton_root_finder, direct_root_finder
@@ -175,23 +184,33 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
 def node_loss(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial):
     neural_net = combine_dynamic_net(params, static)
 
-    sht_init = jnp.zeros((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
-    lr, tol, max_iter = fixed_point_args
 
     if force_serial == False:
         ## For time-paralle computing
-        batched_pint = jax.vmap(fixed_point_ad, in_axes=(None, None, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
-        final_feature = batched_pint(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, pint_scheme, lr, tol, max_iter)[:, -x.shape[1]:]
+
+        ## increase timespan for euler not to diverge
+        factor = np.ceil((times[1]-times[0])/(nb_processors * times[3])).astype(int)
+        t_init = increase_timespan(jnp.linspace(times[0], times[1], nb_processors+1), factor)
+
+        print("Factor for PinT initialisation is:", factor)     ## Much needed side effect !
+        feat0 = jax.vmap(euler_integrator, in_axes=(None, None, 0, None, None))(params, static, x, t_init, np.inf)[:, ::factor, :]
+
+        lr, tol, max_iter = fixed_point_args
+        batched_pint = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
+        features, errors, nb_iters = batched_pint(shooting_fn, feat0, x, nb_processors, times, params, static, integrator, pint_scheme, lr, tol, max_iter)
+
     else:
         ## For serial computing
-        batched_pint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
-        final_feature = batched_pint(params, static, x, jnp.linspace(*times[:3]), times[3])[:, -1, -x.shape[1]:]
+        batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
+        features = batched_odeint(params, static, x, jnp.linspace(*times[:3]), times[3])
+        errors, nb_iters = None, None
+
 
     batched_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
-    y_pred = batched_pred(final_feature)
+    y_pred = batched_pred(features[:, -1, :])
 
     # return jnp.mean(jax.vmap(loss_fn, in_axes=(0, 0))(y_pred, y))
-    return jnp.mean(loss_fn(y_pred, y))  ## TODO loss_fn should be vmapped by design
+    return jnp.mean(loss_fn(y_pred, y)), (errors, nb_iters)  ## TODO loss_fn should be vmapped by design
 
 
 ## Other considerations
