@@ -10,67 +10,107 @@ import equinox as eqx
 
 from .utils import get_new_keys
 
+from typing import List
+
+# class DynamicNet(eqx.Module):
+#     """
+#     This class is for dynamic multilayer perceptrons. The input and output layers are prone to change in shapes during training.
+#     """
+
+#     dyn_input_size: int
+#     dyn_output_size: int
+#     sta_pred_size: int
+
+#     dyn_input_layer: eqx.nn.Linear
+#     sta_hidden_layers: eqx.Module
+#     dyn_output_layer: eqx.nn.Linear
+
+#     dyn_prediction_layer: eqx.nn.Linear
+
+#     def __init__(self, neural_net=None, input_size=1, output_size=0, pred_size=1, key=None):
+#         """ 
+#         Initialises the input and outputs layers of DynamicNet with input_size (at least 2 to include time) and output_size (at least 1) respectively
+#         """
+
+#         # hidden_features = 100 ## TODO get this parameter from the neural_net
+
+#         keys = get_new_keys(key, num=3)
+
+#         self.dyn_input_size = input_size
+#         self.dyn_output_size = output_size
+#         self.sta_pred_size = pred_size
+
+#         if neural_net is not None:
+#             self.sta_hidden_layers = neural_net
+#         else:
+#             self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=model_key)
+
+#         ## TODO what follows is highly brittle (only works for MLPs)
+#         in_hidden_features = self.sta_hidden_layers.layers[0].in_features
+#         out_hidden_features = self.sta_hidden_layers.layers[-1].out_features
+
+#         self.dyn_input_layer = eqx.nn.Linear(input_size, in_hidden_features, key=keys[0])    ## TODO what if the user actually implements an input layer, or a conv net...?
+
+#         self.dyn_output_layer = eqx.nn.Linear(out_hidden_features, output_size, key=keys[1])
+
+#         # if hasattr(neural_net, "prediction_layer"):     ## TODO make sure the user never sets a prediction layer
+
+#         self.dyn_prediction_layer = eqx.nn.Linear(output_size+1, pred_size, key=keys[2])
+#         glorot_weights = glorot_uniform(shape=(pred_size, output_size), key=keys[2])
+#         self.dyn_prediction_layer = eqx.tree_at(lambda l: l.weight, self.dyn_prediction_layer, glorot_weights)
+
+
+#     def __call__(self, x, t):
+
+#         # tx = jnp.concatenate([t, x], axis=-1)
+#         tx = jnp.concatenate([jnp.broadcast_to(t, (1,)), x], axis=-1)
+
+#         y = self.dyn_input_layer(tx)
+#         y = self.sta_hidden_layers(y)
+#         y = self.dyn_output_layer(y)
+
+#         return y
+
+#     def predict(self, x):
+#         return self.dyn_prediction_layer(x)
+
+
+
+
+
+
 class DynamicNet(eqx.Module):
     """
-    This class is for dynamic multilayer perceptrons. The input and output layers are prone to change in shapes during training.
+    This new class is for convolutional neural networks. ## TODO make sure it works with MLPs too
     """
 
-    dyn_input_size: int
-    dyn_output_size: int
-    sta_pred_size: int
+    encoder: List
+    process: List
+    decoder: List
 
-    dyn_input_layer: eqx.nn.Linear
-    sta_hidden_layers: eqx.Module
-    dyn_output_layer: eqx.nn.Linear
 
-    dyn_prediction_layer: eqx.nn.Linear
+    def __init__(self, neural_nets=None, key=None):
 
-    def __init__(self, neural_net=None, input_size=1, output_size=0, pred_size=1, key=None):
-        """ 
-        Initialises the input and outputs layers of DynamicNet with input_size (at least 2 to include time) and output_size (at least 1) respectively
-        """
+        self.encoder, self.processor, self.decoder = neural_nets
 
-        # hidden_features = 100 ## TODO get this parameter from the neural_net
-
-        keys = get_new_keys(key, num=3)
-
-        self.dyn_input_size = input_size
-        self.dyn_output_size = output_size
-        self.sta_pred_size = pred_size
-
-        if neural_net is not None:
-            self.sta_hidden_layers = neural_net
-        else:
-            self.sta_hidden_layers = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=model_key)
-
-        ## TODO what follows is highly brittle (only works for MLPs)
-        in_hidden_features = self.sta_hidden_layers.layers[0].in_features
-        out_hidden_features = self.sta_hidden_layers.layers[-1].out_features
-
-        self.dyn_input_layer = eqx.nn.Linear(input_size, in_hidden_features, key=keys[0])    ## TODO what if the user actually implements an input layer, or a conv net...?
-
-        self.dyn_output_layer = eqx.nn.Linear(out_hidden_features, output_size, key=keys[1])
-
-        # if hasattr(neural_net, "prediction_layer"):     ## TODO make sure the user never sets a prediction layer
-
-        self.dyn_prediction_layer = eqx.nn.Linear(output_size+1, pred_size, key=keys[2])
-        glorot_weights = glorot_uniform(shape=(pred_size, output_size), key=keys[2])
-        self.dyn_prediction_layer = eqx.tree_at(lambda l: l.weight, self.dyn_prediction_layer, glorot_weights)
-
+    def encode(self, x):
+        for layer in self.encoder:
+            x = layer(x)
+        return x
 
     def __call__(self, x, t):
-
-        # tx = jnp.concatenate([t, x], axis=-1)
-        tx = jnp.concatenate([jnp.broadcast_to(t, (1,)), x], axis=-1)
-
-        y = self.dyn_input_layer(tx)
-        y = self.sta_hidden_layers(y)
-        y = self.dyn_output_layer(y)
-
+        y = jnp.concatenate([jnp.broadcast_to(t, x.shape[:-1]+(1,)), x], axis=0)
+        for layer in self.processor:
+            y = layer(y)
         return y
 
-    def predict(self, x):
-        return self.dyn_prediction_layer(x)
+    def decode(self, x):
+        for layer in self.decoder:
+            x = layer(x)
+        return x
+
+
+
 
 
 def glorot_uniform(shape, key):

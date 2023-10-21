@@ -39,27 +39,72 @@ SEED = 27
 
 #%%
 
-class MLP(eqx.Module):
-    """
-    A simple neural net that learn MNIST
-    """
 
-    layers: list
-    # prediction_layer: eqx.nn.Linear
+# class MLP(eqx.Module):
+#     """
+#     A simple neural net that learn MNIST
+#     """
 
-    def __init__(self, key=None):
+#     layers: list
+#     # prediction_layer: eqx.nn.Linear
 
-        key = get_new_keys(key)
+#     def __init__(self, key=None):
 
-        self.layers = [eqx.nn.Linear(100, 100, key=key)]
-        for i in range(1):
-            self.layers = self.layers + [jax.nn.relu, eqx.nn.Linear(100, 100, key=key)]
-        # self.prediction_layer = eqx.nn.Linear(100, 10, key=key)
+#         key = get_new_keys(key)
 
-    def __call__(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
+#         self.layers = [eqx.nn.Linear(100, 100, key=key)]
+#         for i in range(1):
+#             self.layers = self.layers + [jax.nn.relu, eqx.nn.Linear(100, 100, key=key)]
+#         # self.prediction_layer = eqx.nn.Linear(100, 10, key=key)
+
+#     def __call__(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
+
+# class ConvNet(eqx.Module):
+#     """
+#     A simple neural net that learn MNIST
+#     """
+
+#     layers: list
+#     encoder: list
+#     decoder: list
+
+#     def __init__(self, key=None):
+
+#         key = get_new_keys(key, 6)
+
+#         self.encoder = [eqx.nn.Conv2D(1, 64, (3, 3), stride=1, key=key[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=key[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=key[2]) ]   ## latent_layer
+
+#         self.layers = [eqx.nn.Conv2D(64+1, 64, (3, 3), stride=1, padding=1, key=key[3]), jax.nn.tanh,
+#                         eqx.nn.Conv2D(64, 64, (3, 3), stride=1, padding=1, key=key[4]), jax.nn.tanh]
+
+#         self.decoder = [eqx.GroupNorm(64, 64), jax.nn.relu, 
+#                         eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64, -1)),
+#                         eqx.nn.Linear(64, 10, key=key[5])]   ## prediction_layer
+
+#     def __call__(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
+
+
+keys = get_new_keys(SEED, 6)
+
+encoder = [eqx.nn.Conv2D(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]   ## latent_layers
+
+processor = [eqx.nn.Conv2D(64+1, 64, (3, 3), stride=1, padding=1, key=keys[3]), jax.nn.tanh,
+                eqx.nn.Conv2D(64, 64, (3, 3), stride=1, padding=1, key=keys[4]), jax.nn.tanh]
+
+decoder = [eqx.GroupNorm(64, 64), jax.nn.relu, 
+                eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64, -1)),
+                eqx.nn.Linear(64, 10, key=keys[5])]   ## prediction_layers
+
 
 
 
@@ -95,7 +140,7 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 10001, 1e-3)       ## t0, tf, nb_times, hmax
+times = (0.0, 1.0, 1001, 1e-3)       ## t0, tf, nb_times, hmax
 
 fixed_point_args = (1., 1e-6, 10)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
@@ -109,33 +154,35 @@ loss = optax.softmax_cross_entropy
 
 
 ## Base neural ODE model
-neuralnet = MLP(key=SEED)
+# neuralnet = MLP(key=SEED)
 # neuralnet = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=get_key(None))
+
+neural_nets = [encoder, processor, decoder]
 
 ## PinT scheme with only mandatory arguments
 
 key = get_new_keys(SEED)
 
-train_params = {"neural_net":neuralnet,
+train_params = {"neural_net":neural_nets,
                 "data":ds,
                 # "pint_scheme":fixed_point_finder,
                 "pint_scheme":parareal,
                 "proj_scheme":random_sampling,
-                # "proj_scheme":identity_sampling,
+                "proj_scheme":identity_sampling,
                 # "integrator":rk4_integrator, 
-                "integrator":euler_integrator, 
-                # "integrator":dopri_integrator,
+                # "integrator":euler_integrator, 
+                "integrator":dopri_integrator,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
-                "nb_processors":80,
-                "scheduler":1e-3,
+                "nb_processors":800,
+                "scheduler":5e-1,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
-                "nb_epochs":20,
+                "nb_epochs":420,
                 "batch_size":8,
-                "repeat_projection":2,
+                "repeat_projection":1,
                 "nb_vectors":5,
-                "force_serial":False,
+                "force_serial":True,
                 "key":key}
 
 

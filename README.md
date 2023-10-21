@@ -9,6 +9,18 @@ Parallel in Time exploration of Neural ODEs.
 
 
 
+## Benchmarks
+| Dataset       | Training Time | Training Acc | Test Acc | Peak Memory | Network Size | Language   | Hyperparams/Script |
+|---------------|---------------|--------------|---------|------------|--------------|------------|-------------|
+| MNIST         | 272.57 seconds       | 98.172%          | 97.117%     | 10.657 GB       | -     | Julia     | [Link](./examples/mnist/00_discriminating_mnist.py) |
+|               |        |           |      |        |      | Jax     | [Link](/path/to/hyperparameters2.json) |
+|               |      |           |      |        |      | NodePinT     | [hyperparameters3.json](/path/to/hyperparameters3.json) |
+| SPH   | 3.5 hours     | 92%          | 88%     | 6 GB       | 4 layers     | NodePinT | [hyperparameters4.json](/path/to/hyperparameters4.json) |
+
+
+
+
+
 ## Getting started
 `pip install nodepint`
 
@@ -18,7 +30,11 @@ Parallel in Time exploration of Neural ODEs.
 <details>
   <summary>Click to expand/collapse</summary>
 
-![Flowchart](docs/imgs/flowchart.png)
+<!-- ## Put the two image below in a table -->
+
+| NodePinT General Logic | Encode-Process-Decode Logic |
+|---------------|---------------|
+| ![Flowchart](docs/imgs/flowchart.png) | ![Logic](docs/imgs/Encode-Process-Decode.svg)
 
 </details>
 

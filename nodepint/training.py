@@ -4,6 +4,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import equinox as eqx
 from equinox import Module
 from datasets import Dataset
 import optax
@@ -13,7 +14,7 @@ from functools import partial
 from .neuralnets import (DynamicNet, 
                          add_neurons_to_input_layer, add_neurons_to_output_layer, add_neurons_to_prediction_layer,
                          partition_dynamic_net, combine_dynamic_net)
-from .pint import select_root_finding_function, fixed_point_ad, shooting_function_serial, shooting_function_parallel
+from .pint import select_root_finding_function, fixed_point_ad, shooting_function_serial, shooting_function_parallel, direct_root_finder_aug, parareal
 from .projection import select_projection_scheme
 from .data import get_dataset_features
 from .utils import get_new_keys, increase_timespan
@@ -21,7 +22,7 @@ from .integrators import euler_integrator
 
 
 
-def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, proj_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
+def train_parallel_neural_ode(neural_nets:Module, data:Dataset, pint_scheme:str, proj_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
     ## Steps in the for loop
     # - Sample a vector
     # - Convert the neural net (of class eqx.Module) into a dynamic one (of class DynamicNet)
@@ -72,8 +73,11 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
 
     model_key, proj_key = get_new_keys(key, 2)
 
+    ## If the first layer of the processor is linear, then we are working with MLPs
+    mlp_setting = isinstance(neural_nets[1][0], eqx.nn.Linear)
+
     pred_size = int(np.prod(data[0][label_feature].shape))
-    dynamic_net = DynamicNet(neural_net, pred_size=pred_size, key=model_key)
+    dynamic_net = DynamicNet(neural_nets, pred_size=pred_size, key=model_key)
 
     print("Dynamic net construction, done !")
 
@@ -83,24 +87,26 @@ def train_parallel_neural_ode(neural_net:Module, data:Dataset, pint_scheme:str, 
     nb_iters_hts = []
     for p in range(repeat_projection):
 
-        vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
+        if mlp_setting:
 
-        ## Sample a vector
-        if p>0 and proj_scheme.__name__=="identity_sampling":
-            print("Cannot perform basis augmentation with identity sampling")
-            break
-        else:
-            basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=nb_vectors, key=proj_key)
+            vec_size = jnp.prod(jnp.asarray(data[0][data_feature].shape[:]))
 
-        print("\nBasis constructed, with shape:", basis.shape)
+            ## Sample a vector
+            if p>0 and proj_scheme.__name__=="identity_sampling":
+                print("Cannot perform basis augmentation with identity sampling")
+                break
+            else:
+                basis, nb_neurons = proj_scheme(old_basis=basis, orig_vec_size=vec_size, nb_new_vecs=nb_vectors, key=proj_key)
 
-        ## Add neurons to the Dynamic NeuralNet's input, output, and prediction layers
-        keys = get_new_keys(model_key, 3)
-        dynamic_net = add_neurons_to_input_layer(dynamic_net, nb_neurons, key=keys[0])
-        dynamic_net = add_neurons_to_output_layer(dynamic_net, nb_neurons, key=keys[1])
-        dynamic_net = add_neurons_to_prediction_layer(dynamic_net, nb_neurons, key=keys[2])
+            print("\nBasis constructed, with shape:", basis.shape)
 
-        print("Adding neurons to dynamic net's layers, done !")
+            ## Add neurons to the Dynamic NeuralNet's input, output, and prediction layers
+            keys = get_new_keys(model_key, 3)
+            dynamic_net = add_neurons_to_input_layer(dynamic_net, nb_neurons, key=keys[0])
+            dynamic_net = add_neurons_to_output_layer(dynamic_net, nb_neurons, key=keys[1])
+            dynamic_net = add_neurons_to_prediction_layer(dynamic_net, nb_neurons, key=keys[2])
+
+            print("Adding neurons to dynamic net's layers, done !")
 
         ## Find the solution to that ODE using PinT and backpropagate
         dynamic_net, loss_ht, errors, nb_iters = train_dynamic_net(dynamic_net, data, basis, pint_scheme, shooting_function, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial)
@@ -129,7 +135,7 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
     loss_ht = []
     errors = []
     nb_iters = []
-    for epoch in range(nb_epochs):
+    for epoch in range(1, nb_epochs+1):
 
         loss_eph = 0
         nb_batches = 0
@@ -151,8 +157,8 @@ def train_dynamic_net(neural_net, dataset, basis, pint_scheme, shooting_fn, nb_p
 
         loss_eph /= nb_batches
 
-        if epoch<3 or epoch%print_every==0:
-            print("Epoch: %-5d      Loss: %.6f" % (epoch, loss_eph))
+        if epoch<=3 or epoch%print_every==0:
+            print("Epoch: %-5d      Loss: %.6f" % (epoch-1, loss_eph))
 
         loss_ht.append(loss_eph)
 
