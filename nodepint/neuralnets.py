@@ -89,26 +89,13 @@ class DynamicNet(eqx.Module):
     decoder: List
 
 
-    def __init__(self, neural_nets=None, key=None):
+    def __init__(self, neural_net=None, key=None):
 
-        self.encoder, self.processor, self.decoder = neural_nets
+        if neural_net == None:
+            """ Initialising dyanmic net with no neural net """
+            print("WARNING: No neural net provided. The dynamic net will be initialised with a a basis of shape (data_shape, 1)")
 
-    def encode(self, x):
-        for layer in self.encoder:
-            x = layer(x)
-        return x
-
-    def __call__(self, x, t):
-        y = jnp.concatenate([jnp.broadcast_to(t, x.shape[:-1]+(1,)), x], axis=0)
-        for layer in self.processor:
-            y = layer(y)
-        return y
-
-    def decode(self, x):
-        for layer in self.decoder:
-            x = layer(x)
-        return x
-
+    ## DO some magic like above
 
 
 
@@ -170,12 +157,12 @@ def add_neurons_to_output_layer(neural_net:DynamicNet, nb_neurons:int, key=None)
     return eqx.tree_at(where, neural_net, new_layer_bias)
 
 
-def partition_dynamic_net(neural_net:DynamicNet):
-    params, static = eqx.partition(neural_net, eqx.is_array)
-    return params, static
+# def partition_dynamic_net(neural_net:DynamicNet):
+#     params, static = eqx.partition(neural_net, eqx.is_array)
+#     return params, static
 
-def combine_dynamic_net(params, static):
-    return eqx.combine(params, static)
+# def combine_dynamic_net(params, static):
+#     return eqx.combine(params, static)
 
 def add_neurons_to_prediction_layer(neural_net:DynamicNet, nb_neurons:int, key=None):
     key = get_new_keys(key)

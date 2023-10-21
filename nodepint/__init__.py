@@ -6,4 +6,4 @@ from .neuralnets import *
 from .integrators import *
 from .pint import *
 from .training import *
-from .projection import *
+from .sampling import *

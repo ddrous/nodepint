@@ -16,11 +16,11 @@ import datetime
 # from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
-from nodepint.training import train_parallel_neural_ode, test_dynamic_net
+from nodepint.training import train_project_neural_ode, test_dynamic_net
 from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_aug, parareal
-from nodepint.projection import random_sampling, identity_sampling
+from nodepint.sampling import random_sampling, identity_sampling, neural_sampling
 
 
 import os
@@ -62,48 +62,66 @@ SEED = 27
 #             x = layer(x)
 #         return x
 
-# class ConvNet(eqx.Module):
-#     """
-#     A simple neural net that learn MNIST
-#     """
+class Encoder(eqx.Module):
+    """
+    A convolutional encoder for MNIST
+    """
+    layers: list
 
-#     layers: list
-#     encoder: list
-#     decoder: list
+    def __init__(self, key=None):
+        keys = get_new_keys(key, num=3)
+        self.layers = [lambda x: jnp.reshape(x, (1, 28, 28)),
+                        eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
 
-#     def __init__(self, key=None):
-
-#         key = get_new_keys(key, 6)
-
-#         self.encoder = [eqx.nn.Conv2D(1, 64, (3, 3), stride=1, key=key[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-#                         eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=key[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-#                         eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=key[2]) ]   ## latent_layer
-
-#         self.layers = [eqx.nn.Conv2D(64+1, 64, (3, 3), stride=1, padding=1, key=key[3]), jax.nn.tanh,
-#                         eqx.nn.Conv2D(64, 64, (3, 3), stride=1, padding=1, key=key[4]), jax.nn.tanh]
-
-#         self.decoder = [eqx.GroupNorm(64, 64), jax.nn.relu, 
-#                         eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64, -1)),
-#                         eqx.nn.Linear(64, 10, key=key[5])]   ## prediction_layer
-
-#     def __call__(self, x):
-#         for layer in self.layers:
-#             x = layer(x)
-#         return x
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
 
-keys = get_new_keys(SEED, 6)
 
-encoder = [eqx.nn.Conv2D(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-                eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-                eqx.nn.Conv2D(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]   ## latent_layers
 
-processor = [eqx.nn.Conv2D(64+1, 64, (3, 3), stride=1, padding=1, key=keys[3]), jax.nn.tanh,
-                eqx.nn.Conv2D(64, 64, (3, 3), stride=1, padding=1, key=keys[4]), jax.nn.tanh]
+class Processor(eqx.Module):
+    """
+    A convlutional processor to be passed to the neural ODE
+    """
 
-decoder = [eqx.GroupNorm(64, 64), jax.nn.relu, 
-                eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64, -1)),
-                eqx.nn.Linear(64, 10, key=keys[5])]   ## prediction_layers
+    layers: list
+
+    def __init__(self, key=None):
+        keys = get_new_keys(key, num=2)
+        self.layers = [eqx.nn.Conv2d(64+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+                        eqx.nn.Conv2d(64, 64, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
+
+    def __call__(self, x, t):
+        y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
+        for layer in self.layers:
+            y = layer(y)
+        return y
+
+
+
+
+class Decoder(eqx.Module):
+    """
+    A decoder to classify MNIST
+    """
+
+    layers: list
+
+    def __init__(self, key=None):
+        key = get_new_keys(key, 1)
+        self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
+                        eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
+                        eqx.nn.Linear(64, 10, key=key)]
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
 
 
 
@@ -114,11 +132,11 @@ decoder = [eqx.GroupNorm(64, 64), jax.nn.relu,
 #%%
 
 ds = load_jax_dataset(path="mnist", split="train")
-ds = preprocess_mnist(ds, subset_size=32*2, seed=SEED, norm_factor=255.)
-# ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
+ds = preprocess_mnist(ds, subset_size=128, seed=SEED, norm_factor=255.)
+# ds = preprocess_mnist_conv(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
 print("Feature names:", get_dataset_features(ds))
-print("Number of training examples", ds.num_rows)
+print("Number of training examples:", ds.num_rows)
 
 ## Visualise a datapoint
 np.random.seed(time.time_ns()%(2**32))
@@ -145,6 +163,7 @@ times = (0.0, 1.0, 1001, 1e-3)       ## t0, tf, nb_times, hmax
 fixed_point_args = (1., 1e-6, 10)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
 loss = optax.softmax_cross_entropy
+# loss = optax.softmax_cross_entropy_with_integer_labels
 
 # def cross_entropy_fn(y_pred, y):      ## TODO: should be vmapped by design
 #     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
@@ -157,18 +176,19 @@ loss = optax.softmax_cross_entropy
 # neuralnet = MLP(key=SEED)
 # neuralnet = eqx.nn.MLP(in_size=100, out_size=100, width_size=250, depth=3, activation=jax.nn.relu, key=get_key(None))
 
-neural_nets = [encoder, processor, decoder]
+keys = get_new_keys(SEED, num=3)
+neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]))
 
 ## PinT scheme with only mandatory arguments
 
 key = get_new_keys(SEED)
 
-train_params = {"neural_net":neural_nets,
+train_params = {"neural_nets":neural_nets,
                 "data":ds,
                 # "pint_scheme":fixed_point_finder,
                 "pint_scheme":parareal,
-                "proj_scheme":random_sampling,
-                "proj_scheme":identity_sampling,
+                "samp_scheme":neural_sampling,
+                # "samp_scheme":identity_sampling,
                 # "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
                 "integrator":dopri_integrator,
@@ -195,7 +215,7 @@ train_params = {"neural_net":neural_nets,
 start_time = time.time()
 cpu_start_time = time.process_time()
 
-dynamicnet, basis, shooting_fn, loss_hts, errors_hts, nb_iters_hts = train_parallel_neural_ode(**train_params)
+trained_networks, shooting_fn, loss_hts, errors_hts, nb_iters_hts = train_project_neural_ode(**train_params)
 
 clock_time = time.process_time() - cpu_start_time
 wall_time = time.time() - start_time

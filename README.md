@@ -26,7 +26,7 @@ Parallel in Time exploration of Neural ODEs.
 
 
 
-## Flowchart
+## Flowcharts
 <details>
   <summary>Click to expand/collapse</summary>
 

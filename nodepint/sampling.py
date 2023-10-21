@@ -13,6 +13,7 @@
 
 import jax
 import jax.numpy as jnp
+import equinox as eqx
 
 from .utils import get_new_keys
 
@@ -46,6 +47,15 @@ def radermacher_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     pass
 
 
+
+### A bit different from the other sampling functions. The basis is now an equinox module. The "projection" is simply calling the module on a vector.
+def neural_sampling(sampling_size:int=1, vec_shape:tuple=(None,), basis_wrapper:eqx.Module=None, key:jax.random.PRNGKey=None):
+    """ Creates/samples "sampling size" vectors of shape "vec_shape" from SOMEWHERE, and add them to the basis contained in "basis_wrapper" """
+    return basis_wrapper, sampling_size
+
+
+
+
 def learned_sampling(basis:jax.Array, key:jax.random.PRNGKey=None):
     pass
 
@@ -56,6 +66,8 @@ def select_projection_scheme(name:str="random"):
         scheme = identity_sampling
     elif name=="learned":
         scheme = learned_sampling
+    elif name=="neural":
+        scheme = neural_sampling
     else:
         raise ValueError("Unknown projection scheme")
     return scheme
