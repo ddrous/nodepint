@@ -13,11 +13,12 @@ import optax
 import matplotlib.pyplot as plt
 from functools import partial
 import datetime
-from flax.metrics import tensorboard
+# from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_project_neural_ode, test_dynamic_net
-from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
+# from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
+from nodepint.data import load_mnist_dataset_torch
 from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_aug, parareal
 from nodepint.sampling import random_sampling, identity_sampling, neural_sampling
@@ -71,8 +72,7 @@ class Encoder(eqx.Module):
 
     def __init__(self, key=None):
         keys = get_new_keys(key, num=3)
-        self.layers = [lambda x: jnp.reshape(x, (1, 28, 28)),
-                        eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+        self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
 
@@ -132,23 +132,23 @@ class Decoder(eqx.Module):
 
 #%%
 
-ds = load_jax_dataset(path="mnist", split="train")
-# ds = preprocess_mnist(ds, subset_size=640*1, seed=SEED, norm_factor=255.)
-ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
+ds = load_mnist_dataset_torch(root="./data/mnist", train=True)
+# ds = make_dataloader_torch(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
-print("Feature names:", get_dataset_features(ds))
-print("Number of training examples:", ds.num_rows)
+# print("Feature names:", get_dataset_features(ds))
+print("Number of training examples:", len(ds))
 
 ## Visualise a datapoint
 np.random.seed(time.time_ns()%(2**32))
-point_id = np.random.randint(0, ds.num_rows)
-pixels = ds[point_id]["image"]
-label = ds[point_id]["label"]
+point_id = np.random.randint(0, len(ds))
+pixels, label = ds[point_id]
 
-plt.title('Label is {label}'.format(label=label.argmax()))
-plt.imshow(pixels, cmap='gray')
+plt.title(f"Label is {label:1d}")
+plt.imshow(pixels.squeeze(), cmap='gray')
 plt.show()
 
+# import torch
+# print("Torch devices out there", torch.cuda.device_count())
 
 
 #%% [markdown]
@@ -163,8 +163,8 @@ times = (0., 1., 101, 1e-2)       ## t0, tf, nb_times, hmax
 
 fixed_point_args = (1., 1e-6, 10)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
-loss = optax.softmax_cross_entropy
-# loss = optax.softmax_cross_entropy_with_integer_labels
+# loss = optax.softmax_cross_entropy
+loss = optax.softmax_cross_entropy_with_integer_labels
 
 # def cross_entropy_fn(y_pred, y):      ## TODO: should be vmapped by design
 #     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
@@ -191,15 +191,15 @@ train_params = {"neural_nets":neural_nets,
                 "samp_scheme":neural_sampling,
                 # "samp_scheme":identity_sampling,
                 # "integrator":rk4_integrator, 
-                # "integrator":euler_integrator, 
-                "integrator":dopri_integrator,
+                "integrator":euler_integrator, 
+                # "integrator":dopri_integrator,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
                 "nb_processors":800,
-                "scheduler":5e-1,
+                "scheduler":5e-4,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
-                "nb_epochs":5,
+                "nb_epochs":40,
                 "batch_size":128,
                 "repeat_projection":1,
                 "nb_vectors":5,
@@ -214,8 +214,8 @@ train_params = {"neural_nets":neural_nets,
 
 # with jax.profiler.trace("./runs", create_perfetto_link=False):
 
-profiler = cProfile.Profile()
-profiler.enable()
+# profiler = cProfile.Profile()
+# profiler.enable()
 
 start_time = time.time()
 cpu_start_time = time.process_time()
@@ -225,21 +225,17 @@ trained_networks, shooting_fn, loss_hts, errors_hts, nb_iters_hts = train_projec
 clock_time = time.process_time() - cpu_start_time
 wall_time = time.time() - start_time
 
-print("\nNumber of iterations till PinT eventual convergence:\n", np.asarray(nb_iters_hts))
-print("Errors during PinT iterations:\n", np.asarray(errors_hts))
+# print("\nNumber of iterations till PinT eventual convergence:\n", np.asarray(nb_iters_hts))
+# print("Errors during PinT iterations:\n", np.asarray(errors_hts))
 
 time_in_hmsecs = seconds_to_hours(wall_time)
 print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 
-profiler.disable()
-
-
-# profiler.print_stats(sort='cumulative')
-
-profile_output_filename = "runs/cprofile/profile_report.txt"
-# Save the report to the specified file
-with open(profile_output_filename, "w") as f:
-    profiler.dump_stats(profile_output_filename)
+# profiler.disable()
+# # profiler.print_stats(sort='cumulative')
+# profile_output_filename = "runs/cprofile/profile_report.txt"
+# with open(profile_output_filename, "w") as f:
+#     profiler.dump_stats(profile_output_filename)
 
 
 
@@ -248,17 +244,17 @@ with open(profile_output_filename, "w") as f:
 
 #%% 
 
-# ## Plot the loss histories per iterations
-# labels = [str(i) for i in range(len(loss_hts))]
-# epochs = range(len(loss_hts[0]))
+## Plot the loss histories per iterations
+labels = [str(i) for i in range(len(loss_hts))]
+epochs = range(len(loss_hts[0]))
 
-# sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", y_scale="log", title="Loss histories");
+sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", y_scale="log", title="Loss histories");
 
-# ## Loss histories acros all iterations
-# total_loss = np.concatenate(loss_hts, axis=0)
-# total_epochs = 1 + np.arange(len(total_loss))
+## Loss histories acros all iterations
+total_loss = np.concatenate(loss_hts, axis=0)
+total_epochs = 1 + np.arange(len(total_loss))
 
-# ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
+ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
 
 
 

@@ -30,3 +30,6 @@ nodepint/__pycache__/*
 
 # Artifacts of testing
 nodepint/tests/data/*
+
+## Pytorch data savings
+*-ubyte

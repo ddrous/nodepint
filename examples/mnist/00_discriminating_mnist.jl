@@ -48,7 +48,9 @@ dudt = Flux.Chain(Flux.Conv((3, 3), 64=>64, tanh, stride=1, pad=1),
 
 fc = Flux.Chain(Flux.GroupNorm(64, 64), x -> relu.(x), Flux.MeanPool((6, 6)),
            x -> reshape(x, (64, :)), Flux.Dense(64,10)) |> Flux.gpu
-          
+
+# mysolver = Euler()
+mysolver = Tsit5()
 nn_ode = NeuralODE(dudt, (0.f0, 1.f0), Tsit5(),
                    save_everystep = false,
                    reltol = 1e-3, abstol = 1e-3,
