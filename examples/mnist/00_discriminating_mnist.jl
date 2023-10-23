@@ -1,4 +1,5 @@
 # Example taken from : https://docs.sciml.ai/DiffEqFlux/stable/examples/mnist_conv_neural_ode/
+# Definitaion of a Neural ODE: https://github.com/SciML/DiffEqFlux.jl/blob/1bf03bd7aed6f09c9a4a25ca29c14277d7bf71c6/src/neural_de.jl
 
 using DiffEqFlux, DifferentialEquations, Printf
 using Flux.Losses: logitcrossentropy

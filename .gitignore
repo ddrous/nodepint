@@ -18,6 +18,8 @@ nodepint/__pycache__/*
 # For tensorboard logs
 *v2
 *ubyte.gz
+*json.gz
+*.pb
 
 # For slurm out files
 *.out

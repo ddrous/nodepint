@@ -18,7 +18,8 @@ from .data import get_dataset_features
 from .utils import get_new_keys, increase_timespan
 from .integrators import euler_integrator
 
-
+# import jax.profiler
+# jax.profiler.start_server(9999)
 
 def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, samp_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
     ## Steps in the for loop
@@ -104,6 +105,8 @@ def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, s
 
         print("Dynamic net construction, done !")
 
+
+
     basis_wrap = neural_nets[0]      ## The wrapper for the basis is the encoder
     loss_hts = []                    ## Initialise the loss history
     errors_hts = []
@@ -143,7 +146,58 @@ def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, s
         errors_hts.append(errors)
         nb_iters_hts.append(nb_iters)
 
+    # jax.profiler.print_summary()
+
     return neural_nets, shooting_function, loss_hts, errors_hts, nb_iters_hts
+
+
+# def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial):
+
+#     ## Partition the networks net into static and dynamic parts
+#     params, static = eqx.partition(neural_nets, eqx.is_array)
+
+#     ## Initialise the optimiser
+#     optimiser = optim_scheme(scheduler)
+#     optstate = optimiser.init(params)
+
+#     features = get_dataset_features(dataset)
+#     # print_every = nb_epochs//10 if nb_epochs>10 else 1
+#     if nb_epochs > 100:
+#         print_every = nb_epochs//100
+#     elif nb_epochs > 10:
+#         print_every = nb_epochs//10
+#     else:
+#         print_every = 1
+
+#     loss_ht = []
+#     errors = []
+#     nb_iters = []
+#     for epoch in range(1, nb_epochs+1):
+
+#         loss_eph = 0
+#         nb_batches = 0
+
+#         for batch in dataset.iter(batch_size=batch_size):
+#             x, y = batch[features[0]], batch[features[1]]
+
+#             # x = x.reshape((x.shape[0], -1)) @ basis
+
+#             params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
+
+#             errors.append(aux_data[0])      ## TODO return something meaningfull per epoch
+#             nb_iters.append(aux_data[1])
+
+#             loss_eph += jnp.sum(loss_val)
+#             nb_batches += 1
+
+#         loss_eph /= nb_batches
+
+#         if epoch<=3 or epoch%print_every==0:
+#             print("Epoch: %-5d      Loss: %.6f" % (epoch, loss_eph))
+
+#         loss_ht.append(loss_eph)
+
+#     return eqx.combine(params, static), jnp.array(loss_ht), errors, nb_iters
 
 
 def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial):
@@ -156,37 +210,52 @@ def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processo
     optstate = optimiser.init(params)
 
     features = get_dataset_features(dataset)
-    print_every = nb_epochs//10 if nb_epochs>10 else 1
+    if nb_epochs > 100:
+        print_every = nb_epochs//100
+    elif nb_epochs > 10:
+        print_every = nb_epochs//10
+    else:
+        print_every = 1
 
-    loss_ht = []
-    errors = []
-    nb_iters = []
-    for epoch in range(1, nb_epochs+1):
+    nb_batches = dataset.num_rows//batch_size
+    max_pint_iters = fixed_point_args[-1]
 
-        loss_eph = 0
-        nb_batches = 0
+    losses = jnp.zeros((nb_epochs, nb_batches))
+    errors = jnp.zeros((nb_epochs, nb_batches, max_pint_iters))
+    nb_iters = jnp.zeros((nb_epochs, nb_batches))
+
+    for epoch in range(nb_epochs):
+        batch_idx = 0
 
         for batch in dataset.iter(batch_size=batch_size):
             x, y = batch[features[0]], batch[features[1]]
 
-            # x = x.reshape((x.shape[0], -1)) @ basis
+            # params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
 
-            params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
+            # losses, errors, nb_iters = per_batch_callback(losses, errors, nb_iters, loss_val, aux_data[0], aux_data[1], epoch, batch_idx)
 
-            errors.append(aux_data[0])      ## TODO return something meaningfull per epoch
-            nb_iters.append(aux_data[1])
+            batch_idx += 1
 
-            loss_eph += jnp.sum(loss_val)
-            nb_batches += 1
+        if epoch<=3 or (epoch+1)%print_every==0:
+            print("Epoch: %-5d      Loss: %.6f" % (epoch, jnp.mean(losses[epoch])))
 
-        loss_eph /= nb_batches
+    assert batch_idx == nb_batches, "ERROR: The number of batches is not correct"
 
-        if epoch<=3 or epoch%print_every==0:
-            print("Epoch: %-5d      Loss: %.6f" % (epoch-1, loss_eph))
+    return eqx.combine(params, static), jnp.mean(losses, axis=-1), errors, nb_iters
 
-        loss_ht.append(loss_eph)
 
-    return eqx.combine(params, static), jnp.array(loss_ht), errors, nb_iters
+
+@jax.jit
+def per_batch_callback(losses, errors, nb_iters, loss_val, error_val, iter_val, epoch_idx, batch_idx):
+    """A callback function to be called at the end of each batch each epoch."""
+
+    losses = losses.at[epoch_idx, batch_idx].set(loss_val)
+
+    errors = errors.at[epoch_idx, batch_idx, :].set(jnp.max(error_val, axis=0))
+    nb_iters = nb_iters.at[epoch_idx, batch_idx].set(jnp.max(iter_val))
+
+    return losses, errors, nb_iters
+
 
 
 
@@ -241,9 +310,17 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
 
     else:
         ## For serial computing
-        batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
-        x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
-        errors, nb_iters = None, None
+        # batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
+        # x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
+        # errors, nb_iters = None, None
+
+
+        ## Testing absecne of a integrator !!
+        batched_odeint = jax.vmap(processor, in_axes=(0, None), out_axes=0)
+        x_proc_fine = batched_odeint(x_enc, jnp.zeros((1,)+x_enc.shape[2:]))[:, None, ...]
+
+        max_iter = fixed_point_args[-1]
+        errors, nb_iters = jnp.inf*jnp.ones((max_iter,)), 0
 
 
     batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)

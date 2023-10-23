@@ -13,7 +13,7 @@ import optax
 import matplotlib.pyplot as plt
 from functools import partial
 import datetime
-# from flax.metrics import tensorboard
+from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
 from nodepint.training import train_project_neural_ode, test_dynamic_net
@@ -22,6 +22,7 @@ from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integra
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_aug, parareal
 from nodepint.sampling import random_sampling, identity_sampling, neural_sampling
 
+import cProfile
 
 import os
 # os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'    ## Trick to virtualise CPU for pmap
@@ -132,8 +133,8 @@ class Decoder(eqx.Module):
 #%%
 
 ds = load_jax_dataset(path="mnist", split="train")
-ds = preprocess_mnist(ds, subset_size=128, seed=SEED, norm_factor=255.)
-# ds = preprocess_mnist_conv(ds, subset_size="all", seed=SEED, norm_factor=255.)
+# ds = preprocess_mnist(ds, subset_size=640*1, seed=SEED, norm_factor=255.)
+ds = preprocess_mnist(ds, subset_size="all", seed=SEED, norm_factor=255.)
 
 print("Feature names:", get_dataset_features(ds))
 print("Number of training examples:", ds.num_rows)
@@ -158,7 +159,7 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0.0, 1.0, 1001, 1e-3)       ## t0, tf, nb_times, hmax
+times = (0., 1., 101, 1e-2)       ## t0, tf, nb_times, hmax
 
 fixed_point_args = (1., 1e-6, 10)    ## learning_rate, tol, max_iter TODO max_iter still not used
 
@@ -198,8 +199,8 @@ train_params = {"neural_nets":neural_nets,
                 "scheduler":5e-1,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
-                "nb_epochs":420,
-                "batch_size":8,
+                "nb_epochs":5,
+                "batch_size":128,
                 "repeat_projection":1,
                 "nb_vectors":5,
                 "force_serial":True,
@@ -211,6 +212,10 @@ train_params = {"neural_nets":neural_nets,
 
 #%% 
 
+# with jax.profiler.trace("./runs", create_perfetto_link=False):
+
+profiler = cProfile.Profile()
+profiler.enable()
 
 start_time = time.time()
 cpu_start_time = time.process_time()
@@ -223,9 +228,18 @@ wall_time = time.time() - start_time
 print("\nNumber of iterations till PinT eventual convergence:\n", np.asarray(nb_iters_hts))
 print("Errors during PinT iterations:\n", np.asarray(errors_hts))
 
-
 time_in_hmsecs = seconds_to_hours(wall_time)
 print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
+
+profiler.disable()
+
+
+# profiler.print_stats(sort='cumulative')
+
+profile_output_filename = "runs/cprofile/profile_report.txt"
+# Save the report to the specified file
+with open(profile_output_filename, "w") as f:
+    profiler.dump_stats(profile_output_filename)
 
 
 
@@ -234,17 +248,17 @@ print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 
 #%% 
 
-## Plot the loss histories per iterations
-labels = [str(i) for i in range(len(loss_hts))]
-epochs = range(len(loss_hts[0]))
+# ## Plot the loss histories per iterations
+# labels = [str(i) for i in range(len(loss_hts))]
+# epochs = range(len(loss_hts[0]))
 
-sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", y_scale="log", title="Loss histories");
+# sbplot(epochs, jnp.stack(loss_hts, axis=-1), label=labels, x_label="epochs", y_scale="log", title="Loss histories");
 
-## Loss histories acros all iterations
-total_loss = np.concatenate(loss_hts, axis=0)
-total_epochs = 1 + np.arange(len(total_loss))
+# ## Loss histories acros all iterations
+# total_loss = np.concatenate(loss_hts, axis=0)
+# total_epochs = 1 + np.arange(len(total_loss))
 
-ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
+# ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
 
 
 

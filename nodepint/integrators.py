@@ -28,7 +28,7 @@ def dopri_integrator(rhs_params, static, y0, t, hmax):      ## Inverts the order
     rhs = lambda y, t: eqx.combine(rhs_params, static)(y, t)
     rhs = jax.jit(rhs)
 
-    return odeint(rhs, y0, t, rtol=1e-3, atol=1e-3, mxstep=1000, hmax=hmax)
+    return odeint(rhs, y0, t, rtol=1e-2, atol=1e-2, mxstep=100, hmax=hmax)
 
 
 # @partial(jax.jit, static_argnums=(0, 1))
