@@ -1,6 +1,6 @@
 # NodePinT
 
-Parallel in Time exploration of Neural ODEs.
+Parallel-in-time integration of Neural ODEs with reduced basis approximation.
 
 ## Features
 - Neural ordinary differential equations for a wide family of problems
