@@ -189,11 +189,17 @@ def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, s
 
 #             params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
 
-#             errors.append(aux_data[0])      ## TODO return something meaningfull per epoch
-#             nb_iters.append(aux_data[1])
+#             # errors.append(aux_data[0])      ## TODO return something meaningfull per epoch
+#             # nb_iters.append(aux_data[1])
+
+#             errors.append(jnp.max(aux_data[0], axis=0))      ## TODO return something meaningfull per epoch
+#             nb_iters.append(jnp.max(aux_data[1]))
 
 #             loss_eph += jnp.sum(loss_val)
 #             nb_batches += 1
+
+#             # if nb_batches >= 5:
+#             #     break
 
 #         loss_eph /= nb_batches
 
@@ -244,12 +250,17 @@ def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processo
 
             batch_idx += 1
 
+            # if batch_idx >= 5:
+            #     break
+
         if epoch%print_every==0 or epoch<=3 or epoch==nb_epochs-1:
             print("Epoch: %-5d      Loss: %.6f" % (epoch, jnp.mean(losses[epoch])))
+            # print("Epoch: %-5d      Loss: %.6f" % (epoch, jnp.sum(losses[epoch])))
 
     assert batch_idx == nb_batches, "ERROR: The number of batches is not correct"
 
     return eqx.combine(params, static), jnp.mean(losses, axis=-1), errors, nb_iters
+    # return eqx.combine(params, static), jnp.sum(losses, axis=-1)/batch_idx, errors, nb_iters
 
 
 
@@ -316,12 +327,17 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         x_proc_fine, errors, nb_iters = batched_pint(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
 
     else:
+
         ## For serial computing
+        # t_eval = jnp.array([times[0], times[1]])
+        t_eval = jnp.array([times[1]])
+
         batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
-        x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
+        # x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
+        x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, jnp.inf)
         errors, nb_iters = None, None
 
-        # ## Testing abscence of a integrator !!
+        ## Testing abscence of a integrator !!
         # batched_odeint = jax.vmap(processor, in_axes=(0, None), out_axes=0)
         # x_proc_fine = batched_odeint(x_enc, jnp.zeros((1,)+x_enc.shape[2:]))[:, None, ...]
 
@@ -351,40 +367,59 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
 
 
 
-def test_dynamic_net(neural_net, data, basis, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, acc_fn, batch_size):
+def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, acc_fn, batch_size):
 
     ## Partition the dynamic net into static and dynamic parts
-    params, static = partition_dynamic_net(neural_net)
+    params, static = eqx.partition(neural_nets, eqx.is_array)
 
-    features = get_dataset_features(data)
+    dataloader = make_dataloader_torch(data, batch_size=batch_size)
 
-    nb_batches = 0
+    nb_examples = 0
     total_acc = 0.
-    for batch in data.iter(batch_size=batch_size):
-        x, y = batch[features[0]], batch[features[1]]
-        x = x.reshape((x.shape[0], -1)) @ basis
+    for batch in dataloader:
+        x, y = jnp.array(batch[0]), jnp.array(batch[1])
 
         acc_val = test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args)
 
-        nb_batches += 1
+        nb_examples += x.shape[0]
         total_acc += acc_val
 
-    return total_acc/nb_batches
+    return total_acc/nb_examples
+
+
+# @partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "fixed_point_args"))
+# def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args):
+
+#     neural_net = combine_dynamic_net(params, static)
+
+#     sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
+
+#     batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None, None), out_axes=0)
+
+#     batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
+
+#     final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
+
+#     y_pred = batched_model_pred(final_feature)
+
+#     return acc_fn(y_pred, y)
 
 
 @partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "fixed_point_args"))
 def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args):
 
-    neural_net = combine_dynamic_net(params, static)
+    neural_nets = eqx.combine(params, static)
+    encoder, processor, decoder = neural_nets
 
-    sht_init = jnp.ones((nb_processors+1, x.shape[1])).flatten()  ## TODO think of better HOT initialisation. Parareal ?
+    batched_encoder = jax.vmap(encoder, in_axes=(0), out_axes=0)
+    x_enc = batched_encoder(x)
 
-    batched_pint_scheme = jax.vmap(pint_scheme, in_axes=(None, None, 0, None, None, None, None, None, None, None, None), out_axes=0)
+    params_proc, static_proc = eqx.partition(processor, eqx.is_array)
+    t_eval = jnp.array([times[1]])
+    batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
+    x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, jnp.inf)
 
-    batched_model_pred = jax.vmap(neural_net.predict, in_axes=(0), out_axes=0)
-
-    final_feature = batched_pint_scheme(shooting_fn, sht_init, x, nb_processors, times, params, static, integrator, 1., 1e-6, 3)[:, -x.shape[1]:]
-
-    y_pred = batched_model_pred(final_feature)
+    batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)
+    y_pred = batched_decoder(x_proc_fine[:, -1, ...])
 
     return acc_fn(y_pred, y)

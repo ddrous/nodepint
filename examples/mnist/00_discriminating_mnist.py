@@ -16,10 +16,10 @@ import datetime
 # from flax.metrics import tensorboard
 
 from nodepint.utils import get_new_keys, sbplot, seconds_to_hours
-from nodepint.training import train_project_neural_ode, test_dynamic_net
+from nodepint.training import train_project_neural_ode, test_neural_ode
 # from nodepint.data import load_jax_dataset, get_dataset_features, preprocess_mnist
 from nodepint.data import load_mnist_dataset_torch
-from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator
+from nodepint.integrators import dopri_integrator, euler_integrator, rk4_integrator, dopri_integrator_diff
 from nodepint.pint import newton_root_finder, direct_root_finder, fixed_point_finder, direct_root_finder_aug, parareal
 from nodepint.sampling import random_sampling, identity_sampling, neural_sampling
 
@@ -191,16 +191,17 @@ train_params = {"neural_nets":neural_nets,
                 "samp_scheme":neural_sampling,
                 # "samp_scheme":identity_sampling,
                 # "integrator":rk4_integrator, 
-                "integrator":euler_integrator, 
+                # "integrator":euler_integrator, 
                 # "integrator":dopri_integrator,
+                "integrator":dopri_integrator_diff,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
                 "nb_processors":800,
-                "scheduler":5e-4,
+                "scheduler":1e-4,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
-                "nb_epochs":40,
-                "batch_size":128,
+                "nb_epochs":200,
+                "batch_size":128*1,
                 "repeat_projection":1,
                 "nb_vectors":5,
                 "force_serial":True,
@@ -213,6 +214,7 @@ train_params = {"neural_nets":neural_nets,
 #%% 
 
 # with jax.profiler.trace("./runs", create_perfetto_link=False):
+
 
 # profiler = cProfile.Profile()
 # profiler.enable()
@@ -237,7 +239,12 @@ print("\nTotal training time: %d hours %d mins %d secs" %time_in_hmsecs)
 # with open(profile_output_filename, "w") as f:
 #     profiler.dump_stats(profile_output_filename)
 
+#%% 
+eqx.tree_serialise_leaves("data/encode_process_decode.eqx", neural_nets)
 
+#%% 
+# trained_networks = eqx.tree_deserialise_leaves("data/encode_process_decode.eqx", neural_nets)
+# shooting_fn, loss_hts, errors_hts, nb_iters_hts = [None]*4
 
 #%% [markdown]
 # ## Analyse loss history
@@ -278,42 +285,42 @@ ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="To
 
 #%% 
 
-# ## Load the test dataset
-# test_ds = load_jax_dataset(path="mnist", split="test")
-# test_ds = preprocess_mnist(test_ds, subset_size=16, seed=SEED, norm_factor=255.)
-# print("\nNumber of testing examples", test_ds.num_rows)
+## Load the test dataset
+test_ds = load_mnist_dataset_torch(root="./data/mnist", train=False)
+
+print("\nNumber of testing examples", len(test_ds))
 
 
-# def accuracy_fn(y_pred, y):
-#     y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
-#     y = jnp.argmax(y, axis=-1)
+def accuracy_fn(y_pred, y):
+    y_pred = jnp.argmax(jax.nn.softmax(y_pred, axis=-1), axis=-1)
+    # y = jnp.argmax(y, axis=-1)
 
-#     return jnp.mean(y_pred == y, axis=-1)*100
-
-
-# test_params = {"neural_net":dynamicnet,
-#                 "data":test_ds,
-#                 "basis":basis,
-#                 "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
-#                 # "pint_scheme":direct_scheme,
-#                 "integrator":rk4_integrator,
-#                 "fixed_point_args":fixed_point_args,
-#                 "acc_fn":accuracy_fn,
-#                 "shooting_fn":shooting_fn,
-#                 "nb_processors":16,
-#                 "times":times,
-#                 "batch_size":8}
+    return jnp.sum(y_pred == y, axis=-1)*100
 
 
-# start_time = time.time()
+test_params = {"neural_nets": trained_networks,
+                "data":test_ds,
+                "pint_scheme":fixed_point_finder,       ## If None then the fixed_point_ad_rule is used
+                # "pint_scheme":direct_scheme,
+                # "integrator":rk4_integrator,
+                "integrator":dopri_integrator_diff,
+                "fixed_point_args":fixed_point_args,
+                "acc_fn":accuracy_fn,
+                "shooting_fn":shooting_fn,
+                "nb_processors":16,
+                "times":times,
+                "batch_size":128}
 
-# avg_acc = test_dynamic_net(**test_params)
 
-# test_wall_time = time.time() - start_time
-# time_in_hms= seconds_to_hours(test_wall_time)
+start_time = time.time()
 
-# print(f"\nAverage accuracy: {avg_acc:.2f} %")
-# print("Test time: %d hours %d mins %d secs" %time_in_hms)
+avg_acc = test_neural_ode(**test_params)
+
+test_wall_time = time.time() - start_time
+time_in_hms= seconds_to_hours(test_wall_time)
+
+print(f"\nAverage accuracy: {avg_acc:.2f} %")
+print("Test time: %d hours %d mins %d secs" %time_in_hms)
 
 # #%% [markdown]
 # # ## Write stuff to tensorboard

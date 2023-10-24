@@ -33,3 +33,12 @@ nodepint/tests/data/*
 
 ## Pytorch data savings
 *-ubyte
+
+## Don't save equinox models
+*.eqx
+
+## Ignore the example data
+examples/mnist/data/
+
+## Cprofile
+examples/mnist/runs/cprofile/*
