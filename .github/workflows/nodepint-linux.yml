@@ -20,9 +20,12 @@ jobs:
     # - name: Install dependencies
     #   run: |
     #     conda env update --file envs/env_daffyduck.yaml --name base
-    - name: Install datasets from GitHub
+    # - name: Install datasets from GitHub
+    #  run: |
+    #    python -m pip install "datasets @ git+https://github.com/huggingface/datasets#datasets[jax]"
+    - name: Install PyTorch CPU
       run: |
-        python -m pip install "datasets @ git+https://github.com/huggingface/datasets#datasets[jax]"
+        python -m pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cpu
     - name: Install NodePinT & Pytest
       run: |
         python setup.py develop && conda install pytest
