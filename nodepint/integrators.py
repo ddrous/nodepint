@@ -45,19 +45,19 @@ zip = safe_zip
 
 
 # @partial(jax.jit, static_argnums=(0, 1))
-def dopri_integrator(rhs_params, static, y0, t, hmax):      ## Inverts the order of t and y0 passed to func
+def dopri_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):      ## Inverts the order of t and y0 passed to func
 
     rhs = lambda y, t: eqx.combine(rhs_params, static)(y, t)
     rhs = jax.jit(rhs)
 
-    return odeint(rhs, y0, t, rtol=1e-1, atol=1e-1, mxstep=10, hmax=jnp.inf)
+    return odeint(rhs, y0, t, rtol=rtol, atol=atol, mxstep=mxstep, hmax=hmax)
     # return odeint(rhs, y0, t, hmax=hmax)
 
 
 
 
 # @partial(jax.jit, static_argnums=(0, 1))
-def euler_integrator(rhs_params, static, y0, t, hmax):
+def euler_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
   """hmax is never used, but is here for compatibility with other integrators """
   rhs = eqx.combine(rhs_params, static)
   def step(state, t):
@@ -71,7 +71,7 @@ def euler_integrator(rhs_params, static, y0, t, hmax):
 
 
 # @partial(jax.jit, static_argnums=(0, 1))
-def rk4_integrator(rhs_params, static, y0, t, hmax):
+def rk4_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
   rhs = eqx.combine(rhs_params, static)
   def step(state, t):
     y_prev, t_prev = state
@@ -248,7 +248,9 @@ def optimal_step_size(last_step, mean_error_ratio, safety=0.9, ifactor=10.0,
 
 
 # def dopri_integrator_diff(params, static, y0, t, *args, rtol=1.4e-8, atol=1.4e-8, mxstep=jnp.inf, hmax=jnp.inf):
-def dopri_integrator_diff(params, static, y0, t, *args, rtol=1.4e-1, atol=1.4e-1, mxstep=10, hmax=jnp.inf):
+# def dopri_integrator_diff(params, static, y0, t, *args, rtol=1.4e-1, atol=1.4e-1, hmax=jnp.inf, mxstep=10, max_steps_rev=2, kind="checkpointed"):
+# def dopri_integrator_diff(params, static, y0, t, *args, rtol, atol, hmax, mxstep, max_steps_rev, kind):
+def dopri_integrator_diff(params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
   """Adaptive stepsize (Dormand-Prince) Runge-Kutta odeint implementation.
 
   Args:
@@ -270,10 +272,10 @@ def dopri_integrator_diff(params, static, y0, t, *args, rtol=1.4e-1, atol=1.4e-1
     point in `t`, represented as an array (or pytree of arrays) with the same
     shape/structure as `y0` except with a new leading axis of length `len(t)`.
   """
-  for arg in tree_leaves(args):
-    if not isinstance(arg, core.Tracer) and not core.valid_jaxtype(arg):
-      raise TypeError(
-        f"The contents of odeint *args must be arrays or scalars, but got {arg}.")
+  # for arg in tree_leaves(args):
+  #   if not isinstance(arg, core.Tracer) and not core.valid_jaxtype(arg):
+  #     raise TypeError(
+  #       f"The contents of odeint *args must be arrays or scalars, but got {arg}.")
   if not jnp.issubdtype(t.dtype, jnp.floating):
     raise TypeError(f"t must be an array of floats, but got {t}.")
 
@@ -283,20 +285,20 @@ def dopri_integrator_diff(params, static, y0, t, *args, rtol=1.4e-1, atol=1.4e-1
 
   func = eqx.combine(params, static)
 
-  return dopri5_wrapper(func, rtol, atol, mxstep, hmax, y0, t, *args)
+  return dopri5_wrapper(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, t)
 
-@partial(jax.jit, static_argnums=(0, 1, 2, 3, 4))
-def dopri5_wrapper(func, rtol, atol, mxstep, hmax, y0, ts, *args):
+@partial(jax.jit, static_argnums=(0, 1, 2, 3, 4, 5, 6))
+def dopri5_wrapper(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args):
   y0, unravel = ravel_pytree(y0)
   # func = eqx.combine(params, static)
   func = ravel_first_arg(func, unravel)
   # out = dopri5_core(params, static, rtol, atol, mxstep, hmax, y0, ts, *args)
-  out = dopri5_core(func, rtol, atol, mxstep, hmax, y0, ts, *args)
+  out = dopri5_core(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args)
   return jax.vmap(unravel)(out)
 
 # @partial(jax.custom_vjp, nondiff_argnums=(0, 1, 2, 3, 4))
 # def dopri5_core(params, static, rtol, atol, mxstep, hmax, y0, ts, *args):
-def dopri5_core(func, rtol, atol, mxstep, hmax, y0, ts, *args):
+def dopri5_core(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args):
   func_ = lambda y, t: func(y, t)
   # func_ = lambda y, t: eqx.combine(params, static)(y, t, *args)
   # func_ = lambda y, t: eqx.combine(params, static)(y, t)  ## !TODO WARNING! This doesnt use args arguments !!!!
@@ -321,7 +323,7 @@ def dopri5_core(func, rtol, atol, mxstep, hmax, y0, ts, *args):
 
     # _, *carry = lax.while_loop(cond_fun, body_fun, [0] + carry)
     # _, *carry = while_loop(cond_fun, body_fun, [0] + carry, max_steps=2, kind="bounded")
-    _, *carry = while_loop(cond_fun, body_fun, [0] + carry, max_steps=2, kind="checkpointed")
+    _, *carry = while_loop(cond_fun, body_fun, [0] + carry, max_steps=max_steps_rev, kind=kind)
 
     _, _, t, _, last_t, interp_coeff = carry
     relative_output_time = (target_t - last_t) / (t - last_t)

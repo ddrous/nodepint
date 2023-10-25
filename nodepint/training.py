@@ -22,7 +22,7 @@ from .integrators import euler_integrator
 # import jax.profiler
 # jax.profiler.start_server(9999)
 
-def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, samp_scheme:str, integrator:callable, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
+def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, samp_scheme:str, integrator:callable,integrator_args:tuple, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
     ## Steps in the for loop
     # - Sample a vector
     # - Convert the neural net (of class eqx.Module) into a dynamic one (of class DynamicNet)
@@ -142,7 +142,7 @@ def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, s
             print("Adding neurons to dynamic net's layers, done !")
 
         ## Find the solution to that ODE using PinT and backpropagate
-        neural_nets, loss_ht, errors, nb_iters = train_neural_ode(neural_nets, data, pint_scheme, shooting_function, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial)
+        neural_nets, loss_ht, errors, nb_iters = train_neural_ode(neural_nets, data, pint_scheme, shooting_function, nb_processors, times, integrator, integrator_args, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial)
 
         loss_hts.append(loss_ht)
         errors_hts.append(errors)
@@ -211,7 +211,7 @@ def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, s
 #     return eqx.combine(params, static), jnp.array(loss_ht), errors, nb_iters
 
 
-def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial):
+def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, loss_fn, optim_scheme, scheduler, nb_epochs, batch_size, force_serial):
 
     ## Partition the networks net into static and dynamic parts
     params, static = eqx.partition(neural_nets, eqx.is_array)
@@ -244,7 +244,7 @@ def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processo
         for batch in dataloader:
             x, y = jnp.array(batch[0]), jnp.array(batch[1])
            
-            params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial)
+            params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, optimiser, optstate, force_serial)
 
             losses, errors, nb_iters = per_batch_callback(losses, errors, nb_iters, loss_val, aux_data[0], aux_data[1], epoch, batch_idx)
 
@@ -278,10 +278,10 @@ def per_batch_callback(losses, errors, nb_iters, loss_val, error_val, iter_val, 
 
 
 
-@partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "optimiser", "fixed_point_args", "force_serial"))
-def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, optimiser, optstate, force_serial):
+@partial(jax.jit, static_argnames=("static", "loss_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "integrator_args", "optimiser", "fixed_point_args", "force_serial"))
+def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, optimiser, optstate, force_serial):
 
-    (loss_val, aux_data), grad = jax.value_and_grad(node_loss_fn, has_aux=True)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial)
+    (loss_val, aux_data), grad = jax.value_and_grad(node_loss_fn, has_aux=True)(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, force_serial)
 
     ## Remember to freeze encoder gradients if proj scheme is neural TODO
 
@@ -300,7 +300,7 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
 
 
 ## A loss that only works for neural ODEs
-def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, force_serial):
+def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, force_serial):
 
     neural_nets = eqx.combine(params, static)
     encoder, processor, decoder = neural_nets
@@ -312,29 +312,44 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
     ## Only the processor is partioned for the neural ODE
     params_proc, static_proc = eqx.partition(processor, eqx.is_array)
 
+    rtol, atol, hmax, max_steps, max_steps_rev, kind = integrator_args
+    lr, tol, max_iter = fixed_point_args
+
     if force_serial == False:
         ## For time-paralle computing
 
         ## increase timespan for euler not to diverge
-        factor = np.ceil((times[1]-times[0])/(nb_processors * times[3])).astype(int)
+        factor = np.ceil((times[1]-times[0])/(nb_processors * hmax)).astype(int) if np.isfinite(hmax) else 10
         t_init = increase_timespan(jnp.linspace(times[0], times[1], nb_processors+1), factor)
 
         print("Factor for PinT initialisation is:", factor)     ## Much needed side effect !
-        x_proc_coarse = jax.vmap(euler_integrator, in_axes=(None, None, 0, None, None))(params_proc, static_proc, x_enc, t_init, np.inf)[:, ::factor, :]
+        x_proc_coarse = jax.vmap(euler_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
-        lr, tol, max_iter = fixed_point_args
-        batched_pint = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
-        x_proc_fine, errors, nb_iters = batched_pint(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
+        # batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
+        # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
+
+        batched_processor = jax.vmap(direct_root_finder_aug, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
+        x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, lr, tol, max_iter)
 
     else:
 
         ## For serial computing
         # t_eval = jnp.array([times[0], times[1]])
-        t_eval = jnp.array([times[1]])
+        # t_eval = jnp.array([times[1]])
 
-        batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
+        if integrator.__name__ in ("euler_integrator", "rk4_integrator"):    ## Fixed steps sizes, users must know this !
+            t_eval = jnp.linspace(times[0], times[1], times[2])
+        if y.ndim == x.ndim+1:
+            t_eval = jnp.linspace(times[0], times[1], y.shape[1])         ## Fully observed adaptive times-stepping dynamical system !
+        else:
+            # t_eval = jnp.array([times[1]])                                  ## We only care for the final time step !
+            t_eval = jnp.linspace(times[0], times[1], 2)
+
+        batched_processor = jax.vmap(integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
         # x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
-        x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, jnp.inf)
+        # x_proc_fine = batched_processor(params_proc, static_proc, x_enc, t_eval, rtol=rtol, atol=atol, hmax=hmax, mxstep=max_steps, max_steps_rev=max_steps_rev, kind=kind)
+        x_proc_fine = batched_processor(params_proc, static_proc, x_enc, t_eval, rtol, atol, hmax, max_steps, max_steps_rev, kind)
+
         errors, nb_iters = None, None
 
         ## Testing abscence of a integrator !!
@@ -345,7 +360,7 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         errors, nb_iters = jnp.inf*jnp.ones((max_iter,)), 0
 
     batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)
-    y_pred = batched_decoder(x_proc_fine[:, -1, ...])
+    y_pred = batched_decoder(x_proc_fine[:, -1, ...])       ## TODO!! the loss function should take care of this !!!!
 
     # y = jax.nn.one_hot(y, y_pred.shape[-1])
 
@@ -367,7 +382,7 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
 
 
 
-def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args, acc_fn, batch_size):
+def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, acc_fn, batch_size):
 
     ## Partition the dynamic net into static and dynamic parts
     params, static = eqx.partition(neural_nets, eqx.is_array)
@@ -379,7 +394,7 @@ def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, 
     for batch in dataloader:
         x, y = jnp.array(batch[0]), jnp.array(batch[1])
 
-        acc_val = test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args)
+        acc_val = test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args)
 
         nb_examples += x.shape[0]
         total_acc += acc_val
@@ -405,8 +420,8 @@ def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, 
 #     return acc_fn(y_pred, y)
 
 
-@partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "fixed_point_args"))
-def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, fixed_point_args):
+@partial(jax.jit, static_argnames=("static", "acc_fn", "pint_scheme", "shooting_fn", "nb_processors", "times", "integrator", "integrator_args", "fixed_point_args"))
+def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args):
 
     neural_nets = eqx.combine(params, static)
     encoder, processor, decoder = neural_nets
@@ -415,9 +430,18 @@ def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_process
     x_enc = batched_encoder(x)
 
     params_proc, static_proc = eqx.partition(processor, eqx.is_array)
-    t_eval = jnp.array([times[1]])
-    batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None), out_axes=0)
-    x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, jnp.inf)
+
+    if integrator.__name__ in ("euler_integrator", "rk4_integrator"):
+        t_eval = jnp.linspace(times[0], times[1], times[2])
+    if y.ndim == x.ndim+1:
+        t_eval = jnp.linspace(times[0], times[1], y.shape[1]) 
+    else:
+        t_eval = jnp.linspace(times[0], times[1], 2)
+
+    rtol, atol, hmax, max_steps, max_steps_rev, kind = integrator_args
+
+    batched_odeint = jax.vmap(integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
+    x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, rtol, atol, hmax, max_steps, max_steps_rev, kind)
 
     batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)
     y_pred = batched_decoder(x_proc_fine[:, -1, ...])

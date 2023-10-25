@@ -13,7 +13,7 @@ Parallel in Time exploration of Neural ODEs.
 | Dataset       | Training Time | Training Acc | Test Acc | Peak Memory | Network Size | Language   | Hyperparams/Script |
 |---------------|---------------|--------------|---------|------------|--------------|------------|-------------|
 | MNIST         | 272.57 seconds       | 98.172%          | 97.117%     | 10.657 GB       | -     | Julia     | [Link](./examples/mnist/00_discriminating_mnist.py) |
-|               |        |           |      |        |      | Jax     | [Link](/path/to/hyperparameters2.json) |
+|               |   16 mins 53 secs     |           |  99.39    |    2.06 GiB    |      | Jax     | [Link](examples/mnist/runs/jsons/train001.json) |
 |               |      |           |      |        |      | NodePinT     | [hyperparameters3.json](/path/to/hyperparameters3.json) |
 | SPH   | 3.5 hours     | 92%          | 88%     | 6 GB       | 4 layers     | NodePinT | [hyperparameters4.json](/path/to/hyperparameters4.json) |
 

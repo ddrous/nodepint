@@ -218,11 +218,78 @@ def direct_root_finder(func, B0, z0, nb_splits, times, rhs, static, integrator, 
 
 
 
+###### TODO This version only works for 1D problems
+# def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
+#     """ Direct root finder augmented with forward sensitivity analysis. Much more streamlined. The "func" is not used anymore. """
+
+#     nz = z0.shape[0]
+#     rhs = eqx.combine(rhs_params, static)
+#     grad_U = jax.jacrev(rhs, argnums=0)
+
+#     def aug_rhs(y, t):
+#         U = y[:nz]
+#         V = y[nz:].reshape((nz, nz))
+#         V_bar = grad_U(U, t) @ V
+#         return jnp.concatenate([rhs(U, t), V_bar.flatten()], axis=0)
+
+#     t0, tf, N = times[:3]
+#     hmax = times[3] if len(times)>3 else 1e-2
+#     N_ = N//nb_splits + 1
+
+#     nb_devices = jax.local_device_count()
+#     devices = mesh_utils.create_device_mesh((nb_devices, 1))
+#     shard = sharding.PositionalSharding(devices)
+
+#     n_s = np.arange(nb_splits)
+#     t0_s = t0 + n_s*(tf-t0)/nb_splits
+#     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
+#     t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+#     t_s = jax.device_put(t_s, shard)
+
+#     def cond_fun(carry):
+#         _, _, errors, k = carry
+#         return (errors[k] > tol) & (k<max_iter)
+
+#     def body_fun(carry):
+#         _, U, errors, k = carry
+  
+#         V = jnp.broadcast_to(jnp.diag(jnp.ones(nz)).flatten(), (nb_splits, nz*nz))
+#         UV0_s = jnp.concatenate([U[:-1,:], V], axis=1)
+#         UV0_s = jax.device_put((UV0_s), shard)
+
+#         UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)[:, -1, ...]
+
+#         def step(U_kp1_n, n):
+#             V_prev = UVf[n-1, nz:].reshape((nz, nz))
+#             U_kp1_np1 = UVf[n-1, :nz] + V_prev@(U_kp1_n - U[n-1, :])
+#             return (U_kp1_np1), U_kp1_np1
+
+#         _, U_next = jax.lax.scan(step, (z0), n_s+1)
+
+#         U_next = jnp.concatenate([z0[None, :], U_next[:, :]], axis=0)
+#         errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
+
+#         return U, U_next, errors, k+1
+
+#     errors = jnp.inf * jnp.ones((max_iter+1,))
+#     errors = errors.at[0].set(2*tol)
+
+#     _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
+
+#     return U_star, errors[1:], nb_iters
+
+
+
+
+
 def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
     """ Direct root finder augmented with forward sensitivity analysis. Much more streamlined. The "func" is not used anymore. """
 
-    nz = z0.shape[0]
-    rhs = eqx.combine(rhs_params, static)
+    orig_shape = z0.shape
+    z0 = z0.flatten()
+
+    nz = jnp.size(z0)
+    rhs = lambda y, t: eqx.combine(rhs_params, static)(jnp.reshape(y, orig_shape), t).flatten()
     grad_U = jax.jacrev(rhs, argnums=0)
 
     def aug_rhs(y, t):
@@ -242,7 +309,7 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     n_s = np.arange(nb_splits)
     t0_s = t0 + n_s*(tf-t0)/nb_splits
     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
-    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, 2), in_axes=(0, 0))(t0_s, tf_s)
     t_s = jax.device_put(t_s, shard)
 
     def cond_fun(carry):
@@ -256,7 +323,7 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
         UV0_s = jnp.concatenate([U[:-1,:], V], axis=1)
         UV0_s = jax.device_put((UV0_s), shard)
 
-        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(aug_rhs, static, UV0_s, t_s, hmax)[:, -1, ...]
+        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(aug_rhs, static, UV0_s, t_s, 1e-1, 1e-1, jnp.inf, 20, 10, "checkpointed")[:, -1, ...]
 
         def step(U_kp1_n, n):
             V_prev = UVf[n-1, nz:].reshape((nz, nz))
@@ -273,10 +340,10 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     errors = jnp.inf * jnp.ones((max_iter+1,))
     errors = errors.at[0].set(2*tol)
 
-    _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
+    B0 = jnp.reshape(B0, (B0.shape[0], -1))     ## TODO Carefull how it orders the dimensions
+    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=max_iter, kind="checkpointed")
 
-    return U_star, errors[1:], nb_iters
-    # return U_star[1:,...], errors[1:], nb_iters         ## TODO small fix for Multi-GPU
+    return jnp.reshape(U_star, (U_star.shape[0], *orig_shape)), errors[1:], nb_iters
 
 
 
