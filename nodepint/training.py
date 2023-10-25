@@ -328,7 +328,7 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         # batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
         # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
 
-        batched_processor = jax.vmap(direct_root_finder_aug, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
+        batched_processor = jax.vmap(pint_scheme, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
         x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, lr, tol, max_iter)
 
     else:

@@ -323,7 +323,7 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
         UV0_s = jnp.concatenate([U[:-1,:], V], axis=1)
         UV0_s = jax.device_put((UV0_s), shard)
 
-        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(aug_rhs, static, UV0_s, t_s, 1e-1, 1e-1, jnp.inf, 20, 10, "checkpointed")[:, -1, ...]
+        UVf = jax.vmap(integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(aug_rhs, static, UV0_s, t_s, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, ...]
 
         def step(U_kp1_n, n):
             V_prev = UVf[n-1, nz:].reshape((nz, nz))
@@ -341,9 +341,72 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     errors = errors.at[0].set(2*tol)
 
     B0 = jnp.reshape(B0, (B0.shape[0], -1))     ## TODO Carefull how it orders the dimensions
-    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=max_iter, kind="checkpointed")
+    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=2, kind="bounded")
 
     return jnp.reshape(U_star, (U_star.shape[0], *orig_shape)), errors[1:], nb_iters
+
+
+
+
+# def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
+
+#     coarse_integrator = euler_integrator
+#     fine_integrator = integrator
+
+#     t0, tf, N = times[:3]
+#     hmax = times[3] if len(times)>3 else 1e-2
+#     N_ = N//nb_splits + 1
+
+#     nb_devices = jax.local_device_count()
+#     devices = mesh_utils.create_device_mesh((nb_devices, 1))
+#     shard = sharding.PositionalSharding(devices)
+
+#     n_s = jnp.arange(nb_splits)
+#     t0_s = t0 + n_s*(tf-t0)/nb_splits
+#     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
+#     t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+#     t_s_pr = jax.device_put((t_s), shard)
+
+#     def cond_fun(carry):
+#         _, _, errors, k = carry
+#         return (errors[k] > tol) & (k<max_iter)
+
+#     def body_fun(carry):
+#         _, U, errors, k = carry
+
+#         U_pr = jax.device_put((U[:-1, :]), shard)
+#         Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, hmax)[:, -1, ...]
+
+#         # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
+#         U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, np.inf)[:, -1, :]
+
+#         def step(U_kp1_n, n):
+#             U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], np.inf)[-1, :]
+#             U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
+#             return (U_kp1_np1), U_kp1_np1
+
+#         _, U_next = jax.lax.scan(step, (z0[:]), n_s+1)
+
+#         U_next = jnp.concatenate([z0[None, :], U_next[:, :]], axis=0)
+#         errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
+
+#         ### TODO Atempt to avoid update U_km1
+#         # _, U_next = jax.lax.scan(step, (Uf[k, :]), n_s[k:]+1)
+#         # U_sol = jnp.concatenate([U[:k, :], U_next[:, :]], axis=0)
+#         # errors = errors.at[k+1].set(jnp.linalg.norm(U_sol - U))
+#         # return U, U_sol, errors, k+1
+
+#         return U, U_next, errors, k+1
+
+#     errors = jnp.inf * jnp.ones((max_iter+1,))
+#     errors = errors.at[0].set(2*tol)
+
+#     _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
+
+#     return U_star, errors[1:], nb_iters
+
+
+
 
 
 
@@ -352,6 +415,9 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
 
     coarse_integrator = euler_integrator
     fine_integrator = integrator
+
+    orgi_shape = z0.shape
+    # z0 = z0.flatten()
 
     t0, tf, N = times[:3]
     hmax = times[3] if len(times)>3 else 1e-2
@@ -364,7 +430,10 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
     n_s = jnp.arange(nb_splits)
     t0_s = t0 + n_s*(tf-t0)/nb_splits
     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
-    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+
+    t_s_cr = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+
+    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, 2), in_axes=(0, 0))(t0_s, tf_s)
     t_s_pr = jax.device_put((t_s), shard)
 
     def cond_fun(carry):
@@ -375,13 +444,13 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
         _, U, errors, k = carry
 
         U_pr = jax.device_put((U[:-1, :]), shard)
-        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, hmax)[:, -1, ...]
+        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
 
         # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
-        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U_pr, t_s_pr, np.inf)[:, -1, :]
+        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_cr, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, :]
 
         def step(U_kp1_n, n):
-            U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], np.inf)[-1, :]
+            U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[-1, :]
             U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
             return (U_kp1_np1), U_kp1_np1
 
@@ -401,12 +470,11 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
     errors = jnp.inf * jnp.ones((max_iter+1,))
     errors = errors.at[0].set(2*tol)
 
-    _, U_star, errors, nb_iters = jax.lax.while_loop(cond_fun, body_fun, (B0, B0, errors, 0))
+    # B0 = jnp.reshape(B0, (B0.shape[0], -1))
+    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=2, kind="checkpointed")
 
+    # U_star = jnp.reshape(U_star, (U_star.shape[0], *orgi_shape))
     return U_star, errors[1:], nb_iters
-
-
-
 
 
 

@@ -74,7 +74,7 @@ class Encoder(eqx.Module):
         keys = get_new_keys(key, num=3)
         self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
+                        eqx.nn.Conv2d(64, 4, (4, 4), stride=2, padding=1, key=keys[2]) ]
 
     def __call__(self, x):
         for layer in self.layers:
@@ -93,8 +93,8 @@ class Processor(eqx.Module):
 
     def __init__(self, key=None):
         keys = get_new_keys(key, num=2)
-        self.layers = [eqx.nn.Conv2d(64+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
-                        eqx.nn.Conv2d(64, 64, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
+        self.layers = [eqx.nn.Conv2d(4+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+                        eqx.nn.Conv2d(64, 4, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
 
     def __call__(self, x, t):
         y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
@@ -114,9 +114,13 @@ class Decoder(eqx.Module):
 
     def __init__(self, key=None):
         key = get_new_keys(key, 1)
-        self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
-                        eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
-                        eqx.nn.Linear(64, 10, key=key)]
+        # self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
+        #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
+        #                 eqx.nn.Linear(64, 10, key=key)]
+        self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
+                        eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
+                        eqx.nn.Linear(4, 10, key=key)]
+
 
     def __call__(self, x):
         for layer in self.layers:
@@ -159,10 +163,10 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0., 1., 101)       ## t0, tf, nb_times (this is for solving the ODE if an adaptative time stepper is not used. Not for eval)
+times = (0., 1., 11)       ## t0, tf, nb_times (this is for solving the ODE if an adaptative time stepper is not used. Not for eval)
 
-integrator_args = (1e-1, 1e-1, jnp.inf, 20, 10, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
-fixed_point_args = (1., 1e-6, 10)               ## learning_rate, tol, max_iter
+integrator_args = (1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
+fixed_point_args = (1., 1e-6, 5)               ## learning_rate, tol, max_iter
 
 # loss = optax.softmax_cross_entropy
 loss = optax.softmax_cross_entropy_with_integer_labels
@@ -195,6 +199,7 @@ key = get_new_keys(SEED)
 train_params = {"neural_nets":neural_nets,
                 "data":ds,
                 # "pint_scheme":fixed_point_finder,
+                # "pint_scheme":direct_root_finder_aug,
                 "pint_scheme":parareal,
                 "samp_scheme":neural_sampling,
                 # "samp_scheme":identity_sampling,
