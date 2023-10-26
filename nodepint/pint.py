@@ -59,6 +59,44 @@ def shooting_function_serial(Z, z0, nb_splits, times, rhs_params, static, integr
 
 
 
+# def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, integrator):
+
+#     t0, tf, N = times[:3]
+#     hmax = times[3] if len(times)>3 else 1e-2
+#     N_ = N//nb_splits + 1
+
+#     # nz = z0.shape[0]
+#     # t_s = []
+#     # z0_s = []
+#     # for n in range(nb_splits):
+#     #     t0_ = t0 + (n+0)*(tf-t0)/nb_splits
+#     #     tf_ = t0 + (n+1)*(tf-t0)/nb_splits
+#     #     t_ = np.linspace(t0_, tf_, N_)
+
+#     #     t_s.append(t_)
+#     #     z0_s.append(Z[n*nz:(n+1)*nz])
+    
+#     nb_devices = jax.local_device_count()
+#     devices = mesh_utils.create_device_mesh((nb_devices, 1))
+#     shard = sharding.PositionalSharding(devices)
+
+#     n_s = jnp.arange(nb_splits)
+#     t0_s = t0 + n_s*(tf-t0)/nb_splits
+#     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
+#     t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+
+#     z0_s, t_s = jax.device_put((Z[:-1, :], t_s), shard)
+#     Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, hmax)
+
+#     ## Only keep the last value per device, plus z0
+#     Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0)
+
+#     return Z - Z_next
+
+
+
+
+
 def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, integrator):
 
     t0, tf, N = times[:3]
@@ -83,15 +121,16 @@ def shooting_function_parallel(Z, z0, nb_splits, times, rhs_params, static, inte
     n_s = jnp.arange(nb_splits)
     t0_s = t0 + n_s*(tf-t0)/nb_splits
     tf_s = t0 + (n_s+1)*(tf-t0)/nb_splits
-    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, N_), in_axes=(0, 0))(t0_s, tf_s)
+    t_s = jax.vmap(lambda t0, tf: jnp.linspace(t0, tf, 2), in_axes=(0, 0))(t0_s, tf_s)
 
     z0_s, t_s = jax.device_put((Z[:-1, :], t_s), shard)
-    Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, z0_s, t_s, hmax)
+    Z_next = jax.vmap(integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, z0_s, t_s, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")
 
     ## Only keep the last value per device, plus z0
     Z_next = jnp.concatenate([z0[None, ...], Z_next[:, -1, ...]], axis=0)
 
     return Z - Z_next
+
 
 
 
@@ -341,7 +380,7 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
     errors = errors.at[0].set(2*tol)
 
     B0 = jnp.reshape(B0, (B0.shape[0], -1))     ## TODO Carefull how it orders the dimensions
-    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=2, kind="bounded")
+    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=2, kind="checkpointed")
 
     return jnp.reshape(U_star, (U_star.shape[0], *orig_shape)), errors[1:], nb_iters
 

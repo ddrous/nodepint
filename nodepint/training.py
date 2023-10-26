@@ -325,11 +325,11 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         print("Factor for PinT initialisation is:", factor)     ## Much needed side effect !
         x_proc_coarse = jax.vmap(euler_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
-        # batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
-        # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
+        batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
+        x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
 
-        batched_processor = jax.vmap(pint_scheme, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
-        x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, lr, tol, max_iter)
+        # batched_processor = jax.vmap(pint_scheme, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None), out_axes=0)
+        # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, lr, tol, max_iter)
 
     else:
 
