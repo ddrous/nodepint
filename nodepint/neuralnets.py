@@ -84,18 +84,34 @@ class DynamicNet(eqx.Module):
     This new class is for convolutional neural networks. ## TODO make sure it works with MLPs too
     """
 
-    encoder: List
-    process: List
-    decoder: List
+    layers: List
 
 
-    def __init__(self, neural_net=None, key=None):
+    def __init__(self, neural_net=None, reference_input=None, out_shape=None, key=None):
 
         if neural_net == None:
             """ Initialising dyanmic net with no neural net """
-            print("WARNING: No neural net provided. The dynamic net will be initialised with a a basis of shape (data_shape, 1)")
+            if reference_input is None:
+                print("ERROR: No neural net provided. The dynamic net needs a reference input to be initialised")
+            key = get_new_keys(key)
 
-    ## DO some magic like above
+            basis = glorot_uniform(shape=(1, *reference_input.shape[:]), key=key)
+
+            ## If the input is 1D, the basis is 2D
+            ## If the input is 2D, the basis is 4D
+            # If the input is 3D, the basis is 6D. See here: https://colab.research.google.com/drive/12-axrkRG__CMnb9OISL6OatIbRP6Poe7#scrollTo=R0j-CaXPf1XR
+
+
+        else:
+            pass
+
+    def __call__(self, x):
+        ## Flatten first !! ??
+        pass
+
+
+
+
 
 
 

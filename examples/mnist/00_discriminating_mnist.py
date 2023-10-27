@@ -64,6 +64,28 @@ SEED = 27
 #             x = layer(x)
 #         return x
 
+# class Encoder(eqx.Module):
+#     """
+#     A convolutional encoder for MNIST
+#     """
+#     layers: list
+
+#     def __init__(self, key=None):
+#         keys = get_new_keys(key, num=3)
+#         self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2d(64, 4, (4, 4), stride=2, padding=1, key=keys[2]) ]
+
+#     def __call__(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
+
+
+import jax.scipy as jsp
+
+min_dft, max_dft = -161699.72, 317932. ## What if I optimised this ?
+
 class Encoder(eqx.Module):
     """
     A convolutional encoder for MNIST
@@ -71,16 +93,39 @@ class Encoder(eqx.Module):
     layers: list
 
     def __init__(self, key=None):
-        keys = get_new_keys(key, num=3)
-        self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-                        eqx.nn.Conv2d(64, 4, (4, 4), stride=2, padding=1, key=keys[2]) ]
+        self.layers = [eqx.nn.Conv2d(1, 10, (1, 1), stride=1, padding=0, key=keys[0]), jax.nn.relu]
 
     def __call__(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        x = self.layers[0](x)
+        x = self.layers[1](x)
+        ft =  jsp.fft.dctn(x)
+        return (ft-min_dft)/(max_dft-min_dft)
 
+
+
+
+# class Encoder(eqx.Module):
+#     """
+#     A convolutional encoder for MNIST
+#     """
+#     layers: list
+
+
+#     #### Use a tensordot, and sum over all the three/two later dimensions of the model. 
+#     ## If basis = (2,4,4, 1,28,28) and x of shape (1,28,28) then the tensordot will
+#     ## will return something of shape (2,4,4)
+#     ## Finally I can multiply this by a learned weight of shape (2,4,4) as well
+
+#     def __init__(self, key=None):
+#         keys = get_new_keys(key, num=3)
+#         self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+#                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
+
+#     def __call__(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
 
 
 
@@ -93,14 +138,34 @@ class Processor(eqx.Module):
 
     def __init__(self, key=None):
         keys = get_new_keys(key, num=2)
-        self.layers = [eqx.nn.Conv2d(4+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
-                        eqx.nn.Conv2d(64, 4, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
+        self.layers = [eqx.nn.Conv2d(10+1, 10, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+                        eqx.nn.Conv2d(10, 10, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
 
     def __call__(self, x, t):
         y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
         for layer in self.layers:
             y = layer(y)
         return y
+
+
+
+# class Processor(eqx.Module):
+#     """
+#     A convlutional processor to be passed to the neural ODE
+#     """
+
+#     layers: list
+
+#     def __init__(self, key=None):
+#         keys = get_new_keys(key, num=2)
+#         self.layers = [eqx.nn.Conv2d(64+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+#                         eqx.nn.Conv2d(64, 64, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
+
+#     def __call__(self, x, t):
+#         y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
+#         for layer in self.layers:
+#             y = layer(y)
+#         return y
 
 
 
@@ -114,12 +179,12 @@ class Decoder(eqx.Module):
 
     def __init__(self, key=None):
         key = get_new_keys(key, 1)
-        # self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
-        #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
-        #                 eqx.nn.Linear(64, 10, key=key)]
-        self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
-                        eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
-                        eqx.nn.Linear(4, 10, key=key)]
+        self.layers = [eqx.nn.GroupNorm(10, 10), jax.nn.relu, 
+                        eqx.nn.AvgPool2d((28, 28)), lambda x:jnp.reshape(x, (10,)),
+                        eqx.nn.Linear(10, 10, key=key)]
+        # self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
+        #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
+        #                 eqx.nn.Linear(4, 10, key=key)]
 
 
     def __call__(self, x):
@@ -127,6 +192,27 @@ class Decoder(eqx.Module):
             x = layer(x)
         return x
 
+# class Decoder(eqx.Module):
+#     """
+#     A decoder to classify MNIST
+#     """
+
+#     layers: list
+
+#     def __init__(self, key=None):
+#         key = get_new_keys(key, 1)
+#         self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
+#                         eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
+#                         eqx.nn.Linear(64, 10, key=key)]
+#         # self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
+#         #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
+#         #                 eqx.nn.Linear(4, 10, key=key)]
+
+
+#     def __call__(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
 
 
 
@@ -163,9 +249,9 @@ plt.show()
 ## Optax crossentropy loss
 optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
-times = (0., 1., 11)       ## t0, tf, nb_times (this is for solving the ODE if an adaptative time stepper is not used. Not for eval)
+times = (0., 1., 101)       ## t0, tf, nb_times (this is for solving the ODE if an adaptative time stepper is not used. Not for eval)
 
-integrator_args = (1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
+integrator_args = (1e-2, 1e-2, jnp.inf, 20, 10, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
 fixed_point_args = (1., 1e-6, 5)               ## learning_rate, tol, max_iter
 
 # loss = optax.softmax_cross_entropy
@@ -187,7 +273,7 @@ neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]
 
 ## PinT scheme with only mandatory arguments
 
-nb_epochs = 5
+nb_epochs = 50
 batch_size = 120*1       ## Divisible by the dataset size to avoid recompilation !
 total_steps = nb_epochs*(len(ds)//batch_size)
 
@@ -205,8 +291,8 @@ train_params = {"neural_nets":neural_nets,
                 # "samp_scheme":identity_sampling,
                 # "integrator":rk4_integrator, 
                 # "integrator":euler_integrator, 
-                "integrator":dopri_integrator,
-                # "integrator":dopri_integrator_diff,
+                # "integrator":dopri_integrator,
+                "integrator":dopri_integrator_diff,
                 "integrator_args":integrator_args,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
