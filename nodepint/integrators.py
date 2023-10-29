@@ -61,6 +61,7 @@ def euler_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_st
   """hmax is never used, but is here for compatibility with other integrators """
   rhs = eqx.combine(rhs_params, static)
   def step(state, t):
+    # rhs = eqx.combine(rhs_params, static)
     y_prev, t_prev = state
     dt = t - t_prev
     y = y_prev + dt * rhs(y_prev, t_prev)
@@ -283,14 +284,12 @@ def dopri_integrator_diff(params, static, y0, t, rtol, atol, hmax, mxstep, max_s
   # return dopri5_wrapper(converted, rtol, atol, mxstep, hmax, y0, t, *args, *consts)
 
 
-  func = eqx.combine(params, static)
+  return dopri5_wrapper(params, static, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, t)
 
-  return dopri5_wrapper(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, t)
-
-@partial(jax.jit, static_argnums=(0, 1, 2, 3, 4, 5, 6))
-def dopri5_wrapper(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args):
+@partial(jax.jit, static_argnums=(1, 2, 3, 4, 5, 6, 7))
+def dopri5_wrapper(params, static, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args):
   y0, unravel = ravel_pytree(y0)
-  # func = eqx.combine(params, static)
+  func = eqx.combine(params, static)
   func = ravel_first_arg(func, unravel)
   # out = dopri5_core(params, static, rtol, atol, mxstep, hmax, y0, ts, *args)
   out = dopri5_core(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args)
@@ -299,6 +298,7 @@ def dopri5_wrapper(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, 
 # @partial(jax.custom_vjp, nondiff_argnums=(0, 1, 2, 3, 4))
 # def dopri5_core(params, static, rtol, atol, mxstep, hmax, y0, ts, *args):
 def dopri5_core(func, rtol, atol, hmax, mxstep, max_steps_rev, kind, y0, ts, *args):
+  # func_ = func
   func_ = lambda y, t: func(y, t)
   # func_ = lambda y, t: eqx.combine(params, static)(y, t, *args)
   # func_ = lambda y, t: eqx.combine(params, static)(y, t)  ## !TODO WARNING! This doesnt use args arguments !!!!

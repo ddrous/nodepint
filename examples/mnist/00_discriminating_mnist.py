@@ -84,25 +84,7 @@ SEED = 27
 
 import jax.scipy as jsp
 
-min_dft, max_dft = -161699.72, 317932. ## What if I optimised this ?
-
-class Encoder(eqx.Module):
-    """
-    A convolutional encoder for MNIST
-    """
-    layers: list
-
-    def __init__(self, key=None):
-        self.layers = [eqx.nn.Conv2d(1, 10, (1, 1), stride=1, padding=0, key=keys[0]), jax.nn.relu]
-
-    def __call__(self, x):
-        x = self.layers[0](x)
-        x = self.layers[1](x)
-        ft =  jsp.fft.dctn(x)
-        return (ft-min_dft)/(max_dft-min_dft)
-
-
-
+# min_dft, max_dft = -161699.72, 317932. ## What if I optimised this ?
 
 # class Encoder(eqx.Module):
 #     """
@@ -110,42 +92,41 @@ class Encoder(eqx.Module):
 #     """
 #     layers: list
 
-
-#     #### Use a tensordot, and sum over all the three/two later dimensions of the model. 
-#     ## If basis = (2,4,4, 1,28,28) and x of shape (1,28,28) then the tensordot will
-#     ## will return something of shape (2,4,4)
-#     ## Finally I can multiply this by a learned weight of shape (2,4,4) as well
-
 #     def __init__(self, key=None):
-#         keys = get_new_keys(key, num=3)
-#         self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-#                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
-#                         eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
+#         self.layers = [eqx.nn.Conv2d(1, 10, (1, 1), stride=1, padding=0, key=keys[0]), jax.nn.relu]
 
 #     def __call__(self, x):
-#         for layer in self.layers:
-#             x = layer(x)
-#         return x
+#         x = self.layers[0](x)
+#         x = self.layers[1](x)
+#         # return x
+#         ft =  jsp.fft.dctn(x)
+#         return (ft-min_dft)/(max_dft-min_dft)
 
 
 
-class Processor(eqx.Module):
+
+class Encoder(eqx.Module):
     """
-    A convlutional processor to be passed to the neural ODE
+    A convolutional encoder for MNIST
     """
-
     layers: list
 
-    def __init__(self, key=None):
-        keys = get_new_keys(key, num=2)
-        self.layers = [eqx.nn.Conv2d(10+1, 10, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
-                        eqx.nn.Conv2d(10, 10, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
 
-    def __call__(self, x, t):
-        y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
+    #### Use a tensordot, and sum over all the three/two later dimensions of the model. 
+    ## If basis = (2,4,4, 1,28,28) and x of shape (1,28,28) then the tensordot will
+    ## will return something of shape (2,4,4)
+    ## Finally I can multiply this by a learned weight of shape (2,4,4) as well
+
+    def __init__(self, key=None):
+        keys = get_new_keys(key, num=3)
+        self.layers = [eqx.nn.Conv2d(1, 64, (3, 3), stride=1, key=keys[0]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[1]), jax.nn.relu, eqx.nn.GroupNorm(64, 64),
+                        eqx.nn.Conv2d(64, 64, (4, 4), stride=2, padding=1, key=keys[2]) ]
+
+    def __call__(self, x):
         for layer in self.layers:
-            y = layer(y)
-        return y
+            x = layer(x)
+        return x
 
 
 
@@ -158,8 +139,8 @@ class Processor(eqx.Module):
 
 #     def __init__(self, key=None):
 #         keys = get_new_keys(key, num=2)
-#         self.layers = [eqx.nn.Conv2d(64+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
-#                         eqx.nn.Conv2d(64, 64, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
+#         self.layers = [eqx.nn.Conv2d(10+1, 10, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+#                         eqx.nn.Conv2d(10, 10, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
 
 #     def __call__(self, x, t):
 #         y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
@@ -169,28 +150,26 @@ class Processor(eqx.Module):
 
 
 
-
-class Decoder(eqx.Module):
+class Processor(eqx.Module):
     """
-    A decoder to classify MNIST
+    A convlutional processor to be passed to the neural ODE
     """
 
     layers: list
 
     def __init__(self, key=None):
-        key = get_new_keys(key, 1)
-        self.layers = [eqx.nn.GroupNorm(10, 10), jax.nn.relu, 
-                        eqx.nn.AvgPool2d((28, 28)), lambda x:jnp.reshape(x, (10,)),
-                        eqx.nn.Linear(10, 10, key=key)]
-        # self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
-        #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
-        #                 eqx.nn.Linear(4, 10, key=key)]
+        keys = get_new_keys(key, num=2)
+        self.layers = [eqx.nn.Conv2d(64+1, 64, (3, 3), stride=1, padding=1, key=keys[0]), jax.nn.tanh,
+                        eqx.nn.Conv2d(64, 64, (3, 3), stride=1, padding=1, key=keys[1]), jax.nn.tanh]
 
-
-    def __call__(self, x):
+    def __call__(self, x, t):
+        y = jnp.concatenate([jnp.broadcast_to(t, (1,)+x.shape[1:]), x], axis=0)
         for layer in self.layers:
-            x = layer(x)
-        return x
+            y = layer(y)
+        return y
+
+
+
 
 # class Decoder(eqx.Module):
 #     """
@@ -201,9 +180,9 @@ class Decoder(eqx.Module):
 
 #     def __init__(self, key=None):
 #         key = get_new_keys(key, 1)
-#         self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
-#                         eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
-#                         eqx.nn.Linear(64, 10, key=key)]
+#         self.layers = [eqx.nn.GroupNorm(10, 10), jax.nn.relu, 
+#                         eqx.nn.AvgPool2d((28, 28)), lambda x:jnp.reshape(x, (10,)),
+#                         eqx.nn.Linear(10, 10, key=key)]
 #         # self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
 #         #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
 #         #                 eqx.nn.Linear(4, 10, key=key)]
@@ -213,6 +192,28 @@ class Decoder(eqx.Module):
 #         for layer in self.layers:
 #             x = layer(x)
 #         return x
+
+class Decoder(eqx.Module):
+    """
+    A decoder to classify MNIST
+    """
+
+    layers: list
+
+    def __init__(self, key=None):
+        key = get_new_keys(key, 1)
+        self.layers = [eqx.nn.GroupNorm(64, 64), jax.nn.relu, 
+                        eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (64,)),
+                        eqx.nn.Linear(64, 10, key=key)]
+        # self.layers = [eqx.nn.GroupNorm(4, 4), jax.nn.relu, 
+        #                 eqx.nn.AvgPool2d((6, 6)), lambda x:jnp.reshape(x, (4,)),
+        #                 eqx.nn.Linear(4, 10, key=key)]
+
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
 
 
@@ -273,7 +274,7 @@ neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]
 
 ## PinT scheme with only mandatory arguments
 
-nb_epochs = 50
+nb_epochs = 5
 batch_size = 120*1       ## Divisible by the dataset size to avoid recompilation !
 total_steps = nb_epochs*(len(ds)//batch_size)
 
@@ -296,7 +297,7 @@ train_params = {"neural_nets":neural_nets,
                 "integrator_args":integrator_args,
                 "loss_fn":loss,
                 "optim_scheme":optim_scheme, 
-                "nb_processors":4,
+                "nb_processors":7,
                 "scheduler":scheduler,
                 "times":times,
                 "fixed_point_args":fixed_point_args,
@@ -304,7 +305,7 @@ train_params = {"neural_nets":neural_nets,
                 "batch_size":batch_size,
                 "repeat_projection":1,
                 "nb_vectors":5,
-                "force_serial":True,
+                "force_serial":False,
                 "key":key}
 
 
