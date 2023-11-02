@@ -12,8 +12,8 @@ Parallel-in-time integration of Neural ODEs with reduced basis approximation.
 ## Benchmarks
 | Dataset       | TrainingTime (Epochs) | TrainingAcc | TestAcc | PeakMemory | NetworkSize | Language   | Hyperparams/Script |
 |---------------|---------------|--------------|---------|------------|--------------|------------|-------------|
-| MNIST         | 4 mins 30 secs (420 epochs)       | 98.172%          | 97.117%     | 10.657 GB       | -     | Julia     | [Link](./examples/mnist/00_discriminating_mnist.py) |
-|               |   16 mins 53 secs (420 epochs)     |           |  99.39%    |    2.06 GiB    |      | Jax     | [Link](examples/mnist/runs/jsons/train001.json) |
+| MNIST         | 4 mins 30 secs (420)       | 98.172%          | 97.117%     | 10.657 GB       | -     | Julia     | [Link](./examples/mnist/00_discriminating_mnist.py) |
+|               |   16 mins 53 secs (420)     |           |  99.39%    |    2.06 GiB    |      | Jax     | [Link](examples/mnist/runs/jsons/train001.json) |
 |               |   20 mins 33 secs (5 epochs !)   |           |   89.48%   |   5.89 GiB     |      | NodePinT     | [Link](examples/mnist/runs/jsons/train002.json) |
 | SPH   | 3.5 hours     | 92%          | 88%     | 6 GB       | 4 layers     | NodePinT | [hyperparameters4.json](/path/to/hyperparameters4.json) |
 
