@@ -13,10 +13,10 @@ setup(
    long_description=open('README.md', encoding="utf-8").read(),
    install_requires=[
          "jax >= 0.3.4",
-         "equinox >= 0.9.2",
+         # "equinox >= 0.9.2",
          # "datasets[jax] >= 2.0.0",     ## install this with --no-deps, and install all its dependencies mannually, or install from github!
          "optax >= 0.1.1",
-         "flax",
+         # "flax",
          "pytest",
          "seaborn",  ## The last two are optional
          # "pyvista[trame]",

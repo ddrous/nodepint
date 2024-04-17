@@ -303,7 +303,7 @@ train_params = {"neural_nets":neural_nets,
                 "fixed_point_args":fixed_point_args,
                 "nb_epochs":nb_epochs,
                 "batch_size":batch_size,
-                "repeat_projection":1,
+                "repeat_projection":3,
                 "nb_vectors":5,
                 "force_serial":False,
                 "key":key}
