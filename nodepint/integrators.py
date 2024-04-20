@@ -69,9 +69,10 @@ def dopri_integrator_diffrax(rhs_params, static, y0, t, rtol, atol, hmax, mxstep
                             diffrax.Dopri5(), 
                             t0=t[0], 
                             t1=t[-1], 
-                            dt0=1e-3, 
+                            dt0=1e-5, 
                             y0=y0, 
-                            saveat=diffrax.SaveAt(ts=t),stepsize_controller=stepsize_controller)
+                            saveat=diffrax.SaveAt(ts=t),stepsize_controller=stepsize_controller,
+                            max_steps=mxstep)
 
   return sol.ys
 
@@ -109,6 +110,28 @@ def euler_integrator_lotka(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, 
   # return ys
   return jnp.concatenate([y0[jnp.newaxis, :], ys], axis=0)
 
+
+class DuffinModule(eqx.Module):
+  a: float
+  b: float
+  c: float
+  def __init__(self, a=-1/2., b=-1., c=1/10.):
+    self.a = a
+    self.b = b
+    self.c = c
+
+  def __call__(self, y, t):
+    x, y = y
+    dxdt = y
+    # dydt = self.a*y - x*(self.b + self.c*x**2)
+    dydt = self.a*y
+    return jnp.array([dxdt, dydt])
+
+def euler_integrator_duffin(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
+  """ Euler integrator for the Lotka-Volterra system """
+  duffin = DuffinModule()
+  new_params, new_static = eqx.partition(duffin, eqx.is_array)
+  return euler_integrator(new_params, new_static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind)
 
 
 

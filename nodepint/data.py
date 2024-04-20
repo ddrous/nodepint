@@ -30,7 +30,7 @@ def load_mnist_dataset_torch(root="./data", train=True) -> Dataset:
 class ODEDataset(Dataset):
     """ODE dataset."""
 
-    def __init__(self, root_dir, split="train"):
+    def __init__(self, root_dir, split="train", skip=1):
         """
         Arguments:
             root_dir (string): Directory with all the trajectories.
@@ -39,6 +39,7 @@ class ODEDataset(Dataset):
 
         self.root_dir = root_dir if root_dir[-1] == "/" else root_dir+"/"
         self.split = split
+        self.skip = skip ## Skip every nth time step
 
         if self.split == "train":
             filename = self.root_dir+"train.npz"
@@ -50,7 +51,10 @@ class ODEDataset(Dataset):
             filename = self.root_dir+"ood_test.npz"
 
         data = np.load(filename)
-        self.X, self.t = data["X"][5], data["t"]        ## TODO: use any environment e here
+        if data["X"].ndim == 4:
+            self.X, self.t = data["X"][5, :, ::self.skip, :], data["t"][::self.skip]        ## TODO: use any environment e here
+        else:
+            self.X, self.t = data["X"][:, ::self.skip, :], data["t"][::self.skip]
 
     def __len__(self):
         return self.X.shape[0]  ## Number of trajectories

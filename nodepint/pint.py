@@ -450,10 +450,10 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
 
 
 
-def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, learning_rate, tol, max_iter):
+def parareal(func, B0, z0, nb_splits, times, rhs_params, static, coarse_integrator, coarse_integrator_args, fine_integrator, fine_integrator_args, learning_rate, tol, max_iter):
 
-    coarse_integrator = euler_integrator
-    fine_integrator = integrator
+    # coarse_integrator = euler_integrator
+    # fine_integrator = integrator
 
     orgi_shape = z0.shape
     # z0 = z0.flatten()
@@ -483,13 +483,13 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
         _, U, errors, k = carry
 
         U_pr = jax.device_put((U[:-1, :]), shard)
-        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, 1e-1, 1e-1, jnp.inf, 20, 20, "checkpointed")[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
+        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, *fine_integrator_args)[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
 
         # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
-        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_cr, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, :]
+        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_cr, *coarse_integrator_args)[:, -1, :]
 
         def step(U_kp1_n, n):
-            U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[-1, :]
+            U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], *coarse_integrator_args)[-1, :]
             U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
             return (U_kp1_np1), U_kp1_np1
 
@@ -505,6 +505,9 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
         # U_sol = jnp.concatenate([U[:k, :], U_next[:, :]], axis=0)
         # errors = errors.at[k+1].set(jnp.linalg.norm(U_sol - U))
         # return U, U_sol, errors, k+1
+
+        # ## Print the iteration number and other stuff
+        # jax.debug.print("Iteration: {}, Error: {} Unext: {}", k, errors[k], U_next)
 
         return U, U_next, errors, k+1
 
