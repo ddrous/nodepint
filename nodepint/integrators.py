@@ -10,6 +10,7 @@ import numpy as np
 import equinox as eqx
 from equinox.internal import while_loop
 
+import diffrax
 
 from functools import partial
 
@@ -57,6 +58,25 @@ def dopri_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_st
 
 
 # @partial(jax.jit, static_argnums=(0, 1))
+def dopri_integrator_diffrax(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
+  """hmax is never used, but is here for compatibility with other integrators """
+  rhs = eqx.combine(rhs_params, static)
+
+  vector_field = lambda t, y, args: rhs(y, t)
+  stepsize_controller = diffrax.PIDController(rtol=rtol, atol=atol)
+
+  sol = diffrax.diffeqsolve(diffrax.ODETerm(vector_field), 
+                            diffrax.Dopri5(), 
+                            t0=t[0], 
+                            t1=t[-1], 
+                            dt0=1e-3, 
+                            y0=y0, 
+                            saveat=diffrax.SaveAt(ts=t),stepsize_controller=stepsize_controller)
+
+  return sol.ys
+
+
+# @partial(jax.jit, static_argnums=(0, 1))
 def euler_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
   """hmax is never used, but is here for compatibility with other integrators """
   rhs = eqx.combine(rhs_params, static)
@@ -69,6 +89,27 @@ def euler_integrator(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_st
   _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
   # return ys
   return jnp.concatenate([y0[jnp.newaxis, :], ys], axis=0)
+
+# @partial(jax.jit, static_argnums=(0, 1))
+def euler_integrator_lotka(rhs_params, static, y0, t, rtol, atol, hmax, mxstep, max_steps_rev, kind):
+  """ Euler integrator for the Lotka-Volterra system """
+  
+  def rhs(y, t):
+    x, y = y
+    a, b, c, d = 0.5, 0.75, 0.5, 0.75
+    return jnp.array([a*x - b*x*y, -c*y + d*x*y])
+
+  def step(state, t):
+    # rhs = eqx.combine(rhs_params, static)
+    y_prev, t_prev = state
+    dt = t - t_prev
+    y = y_prev + dt * rhs(y_prev, t_prev)
+    return (y, t), y
+  _, ys = jax.lax.scan(step, (y0, t[0]), t[1:])
+  # return ys
+  return jnp.concatenate([y0[jnp.newaxis, :], ys], axis=0)
+
+
 
 
 # @partial(jax.jit, static_argnums=(0, 1))

@@ -483,7 +483,7 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
         _, U, errors, k = carry
 
         U_pr = jax.device_put((U[:-1, :]), shard)
-        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
+        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, 1e-1, 1e-1, jnp.inf, 20, 20, "checkpointed")[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
 
         # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
         U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_cr, 1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")[:, -1, :]
@@ -496,7 +496,9 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
         _, U_next = jax.lax.scan(step, (z0[:]), n_s+1)
 
         U_next = jnp.concatenate([z0[None, :], U_next[:, :]], axis=0)
-        errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
+        # errors = errors.at[k+1].set(jnp.linalg.norm(U_next - U))
+        diff = (U_next - U).flatten()
+        errors = errors.at[k+1].set(diff.T @ diff)
 
         ### TODO Atempt to avoid update U_km1
         # _, U_next = jax.lax.scan(step, (Uf[k, :]), n_s[k:]+1)
@@ -510,7 +512,10 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, integrator, lea
     errors = errors.at[0].set(2*tol)
 
     # B0 = jnp.reshape(B0, (B0.shape[0], -1))
-    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=2, kind="checkpointed")
+    _, U_star, errors, nb_iters = eqx.internal.while_loop(cond_fun, body_fun, (B0, B0, errors, 0), max_steps=max_iter, kind="checkpointed")
+
+    ## Print tje errors with JAX debug
+    # jax.debug.print("Errors: {}", errors)
 
     # U_star = jnp.reshape(U_star, (U_star.shape[0], *orgi_shape))
     return U_star, errors[1:], nb_iters

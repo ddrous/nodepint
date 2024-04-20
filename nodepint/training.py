@@ -17,12 +17,12 @@ from .pint import select_root_finding_function, fixed_point_ad, shooting_functio
 from .sampling import select_projection_scheme
 from .data import make_dataloader_torch
 from .utils import get_new_keys, increase_timespan
-from .integrators import euler_integrator
+from .integrators import euler_integrator, rk4_integrator, euler_integrator_lotka
 
 # import jax.profiler
 # jax.profiler.start_server(9999)
 
-def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, samp_scheme:str, integrator:callable,integrator_args:tuple, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
+def train_project_neural_ode(neural_nets:tuple, data:Dataset, pint_scheme:str, samp_scheme:str, integrator:callable, integrator_args:tuple, loss_fn:callable, optim_scheme:GradientTransformation, nb_processors:int, nb_epochs:int, batch_size:int, scheduler:float, times: tuple, fixed_point_args:tuple, repeat_projection:int, nb_vectors:int, force_serial:bool=False, key=None):
     ## Steps in the for loop
     # - Sample a vector
     # - Convert the neural net (of class eqx.Module) into a dynamic one (of class DynamicNet)
@@ -243,7 +243,7 @@ def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processo
 
         for batch in dataloader:
             x, y = jnp.array(batch[0]), jnp.array(batch[1])
-           
+
             params, optstate, loss_val, aux_data = train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args, optimiser, optstate, force_serial)
 
             losses, errors, nb_iters = per_batch_callback(losses, errors, nb_iters, loss_val, aux_data[0], aux_data[1], epoch, batch_idx)
@@ -320,10 +320,13 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
 
         ## increase timespan for euler not to diverge
         factor = np.ceil((times[1]-times[0])/(nb_processors * hmax)).astype(int) if np.isfinite(hmax) else 10
+        factor = 5
+
         t_init = increase_timespan(jnp.linspace(times[0], times[1], nb_processors+1), factor)
 
-        print("Factor for PinT initialisation is:", factor)     ## Much needed side effect !
-        x_proc_coarse = jax.vmap(euler_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
+
+        print("Temporal refinnement factor for PinT euler coarse initialisation is:", factor)     ## Much needed side effect !
+        x_proc_coarse = jax.vmap(euler_integrator_lotka, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
         # batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
         # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
@@ -361,9 +364,15 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         errors, nb_iters = jnp.inf*jnp.ones((max_iter,)), 0
 
     batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)
-    y_pred = batched_decoder(x_proc_fine[:, -1, ...])       ## TODO!! the loss function should take care of this !!!!
+    y_pred = batched_decoder(x_proc_fine[:, :, ...])       ## TODO!! the loss function should take care of this !!!!
 
     # y = jax.nn.one_hot(y, y_pred.shape[-1])
+    ## TODO only y at the final time step is considered
+    if len(y.shape) == 2:
+        y_pred = y_pred[:, -1,...]
+    else: ## Interpolate the solution onto t_eval
+        pass
+        assert y.shape == y_pred.shape, "ERROR: The shape of the prediction and the target must be the same"
 
     # return jnp.mean(jax.vmap(loss_fn, in_axes=(0, 0))(y_pred, y))
     return jnp.mean(loss_fn(y_pred, y)), (errors, nb_iters)  ## TODO loss_fn should be vmapped by design
@@ -445,6 +454,11 @@ def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_process
     x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, t_eval, rtol, atol, hmax, max_steps, max_steps_rev, kind)
 
     batched_decoder = jax.vmap(decoder, in_axes=(0), out_axes=0)
-    y_pred = batched_decoder(x_proc_fine[:, -1, ...])
+    y_pred = batched_decoder(x_proc_fine[:, :, ...])
+
+    if len(y.shape) == 2:
+        y_pred = y_pred[:, -1,...]
+    else: ## Interpolate the solution onto t_eval
+        pass
 
     return acc_fn(y_pred, y)

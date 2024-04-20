@@ -12,6 +12,7 @@ plt.style.use("dark_background")
 
 
 def increase_timespan(t, factor=1.1):
+  """ Provides a more fine temporal resolution for the same time span """
   new_size = int(t.shape[0]-1)*factor + 1
   return jnp.linspace(t[0], t[-1], new_size) 
 
