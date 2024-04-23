@@ -45,7 +45,11 @@ plt.figure(figsize=(10, 6))
 # init_conds = np.array(np.meshgrid(np.linspace(-2, 2, 4), np.linspace(-1, 1, 4))).T.reshape(-1, 2)
 
 ## 8 initial conds only from one of the attractors
-init_conds = np.array([[-0.5, -1], [-0.5, -0.5], [-0.5, 0.5], [-1.5, 1], [-1, -1], [-1, -0.5], [-1, 0.5], [-1, 1], [-2, -1], [-2, -0.5], [-2, 0.5], [-2, 1]])
+init_conds = np.array([[-0.5, -1], [-0.5, -0.5], [-0.5, 0.5], 
+                       [-1.5, 1], 
+                    #    [-0.5, 1], 
+                       [-1, -1], [-1, -0.5], [-1, 0.5], [-1, 1], 
+                       [-2, -1], [-2, -0.5], [-2, 0.5], [-2, 1]])
 
 
 train_data = []

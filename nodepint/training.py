@@ -60,7 +60,7 @@ def train_project_neural_ode(neural_nets:tuple,
     if not isinstance(times, tuple):
         times = tuple(times.flatten())
 
-    encoder, processor, decoder, physics = neural_nets
+    encoder, processor_coarse, processor_fine, decoder = neural_nets
 
     if isinstance(samp_scheme, str):
         samp_scheme = select_projection_scheme(samp_scheme)
@@ -120,11 +120,14 @@ def train_project_neural_ode(neural_nets:tuple,
         pred_size = int(np.prod(data[0][1].shape))
 
         dynamic_encoder = DynamicNet(None, pred_size=pred_size, key=model_key)
-        dynamic_processor = DynamicNet(processor, pred_size=pred_size, key=model_key)
+        # dynamic_processor = DynamicNet(processor, pred_size=pred_size, key=model_key)
+        dynamic_processor_coarse = DynamicNet(processor_coarse, pred_size=pred_size, key=model_key)
+        dynamic_processor_fine = DynamicNet(processor_fine, pred_size=pred_size, key=model_key)
         dynamic_decoder = DynamicNet(decoder, pred_size=pred_size, key=model_key)
 
         # neural_nets = (dynamic_encoder, dynamic_processor, dynamic_decoder)
-        neural_nets = (dynamic_encoder, dynamic_processor, dynamic_decoder, physics)
+        # neural_nets = (dynamic_encoder, dynamic_processor, dynamic_decoder, physics)
+        neural_nets = (dynamic_encoder, dynamic_processor_coarse, dynamic_processor_fine, dynamic_decoder)
 
         print("Dynamic net construction, done !")
 
@@ -243,10 +246,12 @@ def train_neural_ode(neural_nets, dataset, pint_scheme, shooting_fn, nb_processo
 
     # features = get_dataset_features(dataset)
 
-    if nb_epochs > 100:
+    if nb_epochs > 1000:
         print_every = nb_epochs//100
-    elif nb_epochs > 10:
+    elif nb_epochs > 100:
         print_every = nb_epochs//10
+    elif nb_epochs > 10:
+        print_every = nb_epochs//1
     else:
         print_every = 1
 
@@ -324,18 +329,26 @@ def train_step(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_proce
 def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_processors, times, coarse_integrator, coarse_integrator_args, fine_integrator, fine_integrator_args, fixed_point_args, force_serial):
 
     neural_nets = eqx.combine(params, static)
-    encoder, processor, decoder, physics = neural_nets
+    encoder, processor_coarse, processor_fine, decoder = neural_nets
+
+    if processor_coarse is None:
+        processor_coarse = processor_fine
+    if processor_fine is None:
+        processor_fine = processor_coarse
+    if processor_coarse is None and processor_fine is None:
+        ValueError("ERROR: No processor was provided !")
 
     ## Project the data on the encoder basis
     batched_encoder = jax.vmap(encoder, in_axes=(0), out_axes=0)
     x_enc = batched_encoder(x)
 
-    ## The processor is partioned for the (fine) neural ODE
-    params_proc, static_proc = eqx.partition(processor, eqx.is_array)
+    # jax.debug.print("Input x and its encoding: {}, {}", x, x_enc)
 
+    ## The processor for the fine integrator
+    params_fine, static_fine = eqx.partition(processor_fine, eqx.is_array)
 
-    ## The physics is partioned for the (coarse) neural ODE
-    params_phys, static_phys = eqx.partition(physics, eqx.is_array)
+    ## The processor for the coarse integrator
+    params_coarse, static_coarse = eqx.partition(processor_coarse, eqx.is_array)
 
     if force_serial == False:
         ## For time-paralle computing
@@ -344,7 +357,7 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
 
         ## increase timespan for euler not to diverge
         factor = np.ceil((times[1]-times[0])/(nb_processors * hmax)).astype(int) if np.isfinite(hmax) else 10
-        factor = 1
+        # factor = 1
 
         t_init = increase_timespan(jnp.linspace(times[0], times[1], nb_processors+1), factor)
 
@@ -352,15 +365,16 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         print("Temporal refinnement factor for PinT euler coarse initialisation is:", factor)     ## Much needed side effect !
         # x_proc_coarse = jax.vmap(coarse_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
-        x_proc_coarse = jax.vmap(coarse_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_phys, static_phys, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
+        x_proc_coarse = jax.vmap(coarse_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_coarse, static_coarse, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
+        # x_proc_coarse = jax.vmap(coarse_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None))(params_proc, static_proc, x_enc, t_init, rtol, atol, hmax, max_steps, max_steps_rev, kind)[:, ::factor, ...]
 
         # batched_processor = jax.vmap(fixed_point_ad, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
         # x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, integrator, pint_scheme, lr, tol, max_iter)
         # x_proc_fine, errors, nb_iters = x_enc[:, None, ...], jnp.zeros((max_iter,)), 0
 
-        batched_processor = jax.vmap(pint_scheme, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None, None, None), out_axes=0)
-        x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, params_proc, static_proc, coarse_integrator, coarse_integrator_args, fine_integrator, fine_integrator_args, lr, tol, max_iter)
+        batched_processor = jax.vmap(pint_scheme, in_axes=(None, 0, 0, None, None, None, None, None, None, None, None, None), out_axes=0)
+        x_proc_fine, errors, nb_iters = batched_processor(shooting_fn, x_proc_coarse, x_enc, nb_processors, times, (params_coarse, params_fine), (static_coarse, static_fine), (coarse_integrator , fine_integrator), (coarse_integrator_args, fine_integrator_args), lr, tol, max_iter)
 
     else:
 
@@ -380,7 +394,7 @@ def node_loss_fn(params, static, x, y, loss_fn, pint_scheme, shooting_fn, nb_pro
         batched_processor = jax.vmap(fine_integrator, in_axes=(None, None, 0, None, None, None, None, None, None, None), out_axes=0)
         # x_proc_fine = batched_odeint(params_proc, static_proc, x_enc, jnp.linspace(*times[:3]), times[3])
         # x_proc_fine = batched_processor(params_proc, static_proc, x_enc, t_eval, rtol=rtol, atol=atol, hmax=hmax, mxstep=max_steps, max_steps_rev=max_steps_rev, kind=kind)
-        x_proc_fine = batched_processor(params_proc, static_proc, x_enc, t_eval, rtol, atol, hmax, max_steps, max_steps_rev, kind)
+        x_proc_fine = batched_processor(params_fine, static_fine, x_enc, t_eval, rtol, atol, hmax, max_steps, max_steps_rev, kind)
 
         errors, nb_iters = None, None
 
@@ -462,10 +476,18 @@ def test_neural_ode(neural_nets, data, pint_scheme, shooting_fn, nb_processors, 
 def test_step(params, static, x, y, acc_fn, pint_scheme, shooting_fn, nb_processors, times, integrator, integrator_args, fixed_point_args):
 
     neural_nets = eqx.combine(params, static)
-    encoder, processor, decoder = neural_nets
+    # encoder, processor, decoder, physics = neural_nets
+    encoder, processor_coarse, processor_fine, decoder = neural_nets     ## TODO fix this. Use the processor for this !
 
     batched_encoder = jax.vmap(encoder, in_axes=(0), out_axes=0)
     x_enc = batched_encoder(x)
+
+    if processor_coarse is not None:
+        processor = processor_coarse
+    if processor_coarse is None and processor_fine is not None:
+        processor = processor_fine
+    if processor_coarse is None and processor_fine is None:
+        ValueError("ERROR: No processor is not provided !")
 
     params_proc, static_proc = eqx.partition(processor, eqx.is_array)
 

@@ -38,7 +38,7 @@ print("Available devices:", jax.devices())
 import warnings
 warnings.filterwarnings("ignore")
 
-SEED = 2026
+SEED = 2024
 
 ## Reload the nodepint package before each cell run
 %load_ext autoreload
@@ -118,8 +118,8 @@ class DuffinPhysics(eqx.Module):
     def __init__(self, key=None):
         keys = get_new_keys(key, 3)
         ## a=-1/2., b=-1., c=1/10.
-        a = jax.random.uniform(keys[0], (1,), minval=-0.75, maxval=-0.25)[0]
-        b = jax.random.uniform(keys[1], (1,), minval=-1.5, maxval=-0.5)[0]
+        a = jax.random.uniform(keys[0], (1,), minval=-0.55, maxval=-0.45)[0]
+        b = jax.random.uniform(keys[1], (1,), minval=-1.05, maxval=-0.95)[0]
         c = jax.random.uniform(keys[2], (1,), minval=0.05, maxval=0.15)[0]
         self.params = jnp.array([a, b, c])
 
@@ -159,7 +159,7 @@ t_eval = ds.t
 
 
 ## Plot the phase space for all the datapoints
-plt.figure(figsize=(8, 4))
+plt.figure(figsize=(10, 5))
 plt.title("Phase space")
 for i in range(len(ds)):
     init_cond, trajectory = ds[i]
@@ -178,30 +178,39 @@ optim_scheme = optax.adam
 # times = tuple(np.linspace(0, 1, 101).flatten())
 times = (t_eval[0], t_eval[-1], t_eval.shape[0])       ## t0, tf, nb_times (this is for solving the ODE if an adaptative time stepper is not used. Not for eval)
 
-fine_integrator_args = (1e-8, 1e-8, jnp.inf, 200, 10, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
-fixed_point_args = (1., 1e-6, 2000)               ## learning_rate, tol, max_iter
+fine_integrator_args = (1e-8, 1e-8, jnp.inf, 2000, 10, "checkpointed")     ## rtol, atol, max_dt, max_steps, kind, max_steps_rev (these are typically by adatative time steppers)
+coarse_integrator_args = (1e-8, 1e-8, jnp.inf, 2000, 10, "checkpointed")
 
-coarse_integrator_args = (1e-1, 1e-1, jnp.inf, 20, 2, "checkpointed")
+fixed_point_args = (1e-4, 1e-2, 2000)               ## learning_rate, tol, max_iter
+
 
 # loss = optax.softmax_cross_entropy
 # loss = optax.softmax_cross_entropy_with_integer_labels
 loss = optax.l2_loss
 
 keys = get_new_keys(SEED, num=4)
-neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]), DuffinPhysics(key=keys[3]))
+# neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]), DuffinPhysics(key=keys[3]))
+# neural_nets = (Encoder(key=keys[0]), DuffinPhysics(key=keys[3]), Decoder(key=keys[2]), DuffinPhysics(key=keys[3]))
+# neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]), Processor(key=keys[1]))
+# neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), Decoder(key=keys[2]), Processor(key=keys[1]))
+
+
+# neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), DuffinPhysics(key=keys[3]), Decoder(key=keys[2]))
+# neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), None, Decoder(key=keys[2]))
+# neural_nets = (Encoder(key=keys[0]), None, DuffinPhysics(key=keys[3]), Decoder(key=keys[2]))
+neural_nets = (Encoder(key=keys[0]), Processor(key=keys[1]), DuffinPhysics(key=keys[3]), Decoder(key=keys[2])) ## Encoder, Processor for the coarse solver (initialisation and parareal), Processor for the fine solver (all other pints), Decoder for both solver
+
 
 ## PinT scheme with only mandatory arguments
 
-nb_epochs = 1500
+nb_epochs = 250
 batch_size = ds.X.shape[0]
 total_steps = nb_epochs*(len(ds)//batch_size)
 
-scheduler = optax.piecewise_constant_schedule(init_value=1e-3, boundaries_and_scales={int(total_steps*0.5):0.75, int(total_steps*0.75):0.75})
+scheduler = optax.piecewise_constant_schedule(init_value=5e-4, boundaries_and_scales={int(total_steps*0.5):0.75, int(total_steps*0.75):0.75})
 
 
 key = get_new_keys(SEED)
-
-
 
 
 
@@ -214,7 +223,8 @@ train_params = {"neural_nets":neural_nets,
                 # "pint_scheme":direct_root_finder_aug,
                 "pint_scheme":parareal,
                 "samp_scheme":identity_sampling,
-                "coarse_integrator":euler_integrator,
+                # "coarse_integrator":euler_integrator,
+                "coarse_integrator":rk4_integrator,
                 "coarse_integrator_args":coarse_integrator_args,
                 "fine_integrator":rk4_integrator,
                 # "fine_integrator":dopri_integrator_diff,
@@ -266,10 +276,15 @@ total_epochs = 1 + np.arange(len(total_loss))
 ax = sbplot(total_epochs, total_loss, x_label="epochs", y_scale="log", title="Total loss history");
 
 
+
+# params = neural_nets[-3].params
+# print(f"Initial physics parameters: a={params[0]}, b={params[1]}, c={params[2]}")
+
 ## Print physics paramaters
 ## a=-1/2., b=-1., c=1/10.
 print(f"True physics parameters: a={-0.5}, b={-1}, c={0.1}")
-print(f"Learned physics parameters: a={neural_nets[-1].params[0]}, b={neural_nets[-1].params[1]}, c={neural_nets[-1].params[2]}")
+# params = trained_networks[-3].params
+# print(f"Learned physics parameters: a={params[0]}, b={params[1]}, c={params[2]}")
 
 
 ## Save the plot
@@ -324,10 +339,11 @@ print("Test time: %d hours %d mins %d secs" %time_in_hms)
 
 y0s, ys, y_preds = plot_data
 ## Plot the phase space for all the datapoints
-plt.figure(figsize=(8, 4))
+plt.figure(figsize=(10, 5))
 plt.title("Phase space")
 colors = ["r", "b", "g", "m", "c", "y", "k", "orange", "purple", "brown", "pink", "gray"]
 for i in range(len(ys)):
+# for i in range(2):
     if i==0:
         plt.plot(ys[i][:, 0], ys[i][:, 1], label=f"GT Trajectory", color=colors[i], alpha=0.5)
         plt.plot(y_preds[i][:, 0], y_preds[i][:, 1], label=f"Predicted", color=colors[i], linestyle="--", linewidth=3)

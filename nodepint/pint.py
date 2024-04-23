@@ -450,10 +450,24 @@ def direct_root_finder_aug(func, B0, z0, nb_splits, times, rhs_params, static, i
 
 
 
-def parareal(func, B0, z0, nb_splits, times, rhs_params, static, coarse_integrator, coarse_integrator_args, fine_integrator, fine_integrator_args, learning_rate, tol, max_iter):
+def parareal(func, B0, z0, nb_splits, times, rhs_params, statics, integrators, integrators_args, learning_rate, tol, max_iter):
 
     # coarse_integrator = euler_integrator
     # fine_integrator = integrator
+
+    coarse_integrator, fine_integrator = integrators
+    coarse_integrator_args, fine_integrator_args = integrators_args
+    rhs_params_coarse, rhs_params_fine = rhs_params
+    static_coarse, static_fine = statics
+
+    # if rhs_params_fine is None:
+    #     rhs_params_fine = rhs_params_coarse
+    #     static_fine = static_coarse
+    # if rhs_params_coarse is None:
+    #     rhs_params_coarse = rhs_params_fine
+    #     static_coarse = static_fine
+    # if rhs_params_coarse is None and rhs_params_fine is None:
+    #     raise ValueError("At least one learnable vector field should be provided")
 
     orgi_shape = z0.shape
     # z0 = z0.flatten()
@@ -483,14 +497,15 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, coarse_integrat
         _, U, errors, k = carry
 
         U_pr = jax.device_put((U[:-1, :]), shard)
-        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_pr, *fine_integrator_args)[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
+        Uf = jax.vmap(fine_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params_fine, static_fine, U_pr, t_s_pr, *fine_integrator_args)[:, -1, ...] ### This defeats the purpose of NodePinT doesn't it !
 
         # U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None))(rhs_params, static, U[:-1,:], t_s, np.inf)[:, -1, :]
-        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params, static, U_pr, t_s_cr, *coarse_integrator_args)[:, -1, :]
+        U_prevprev = jax.vmap(coarse_integrator, in_axes=(None, None, 0, 0, None, None, None, None, None, None))(rhs_params_coarse, static_coarse, U_pr, t_s_cr, *coarse_integrator_args)[:, -1, :]
 
         def step(U_kp1_n, n):
-            U_prev_n = coarse_integrator(rhs_params, static, U_kp1_n, t_s[n-1], *coarse_integrator_args)[-1, :]
-            U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
+            U_prev_n = coarse_integrator(rhs_params_coarse, static_coarse, U_kp1_n, t_s[n-1], *coarse_integrator_args)[-1, :]
+            # U_kp1_np1 = Uf[n-1, :] + U_prev_n - U_prevprev[n-1, :]
+            U_kp1_np1 =  U_prev_n + learning_rate*(Uf[n-1, :] - U_prevprev[n-1, :])
             return (U_kp1_np1), U_kp1_np1
 
         _, U_next = jax.lax.scan(step, (z0[:]), n_s+1)
@@ -506,7 +521,8 @@ def parareal(func, B0, z0, nb_splits, times, rhs_params, static, coarse_integrat
         # errors = errors.at[k+1].set(jnp.linalg.norm(U_sol - U))
         # return U, U_sol, errors, k+1
 
-        # ## Print the iteration number and other stuff
+        ## Print the iteration number and other stuff
+        # jax.debug.print("Iteration: {}, Error: {}", k, errors[k])
         # jax.debug.print("Iteration: {}, Error: {} Unext: {}", k, errors[k], U_next)
 
         return U, U_next, errors, k+1
